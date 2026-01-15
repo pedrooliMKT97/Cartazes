@@ -7,7 +7,7 @@ import {
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
   Image as ImageIcon, Monitor, Layers, Palette, 
-  Eye, CheckCircle, RefreshCcw, X, List, Sliders, MoveVertical, Save, Bookmark, Loader
+  Eye, CheckCircle, RefreshCcw, X, List, Sliders, MoveVertical, Save, Bookmark, Loader, LayoutTemplate
 } from 'lucide-react';
 
 // === CONFIGURAÇÃO PADRÃO ===
@@ -23,7 +23,7 @@ const formatDateSafe = (dateStr) => {
 };
 
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ
+// 1. COMPONENTE DE CARTAZ (VISUAL MANTIDO)
 // ============================================================================
 const Poster = ({ product, design, width, height, id }) => {
   if (!product) return null;
@@ -103,7 +103,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY (COM BOTÃO DE DOWNLOAD ÚNICO)
+// 3. FACTORY MODERNIZADA
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -114,23 +114,20 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
-  // ==================================================================================
-  // AQUI VOCÊ CONFIGURA SEUS BANNERS E FUNDOS
-  // ==================================================================================
   const library = { 
       banners: [ 
           { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
-          { id: 'b2', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' },
-          { id: 'b2', file: 'superaçougue.png', color: '#6f3107' },
-          { id: 'b2', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' },
-          { id: 'b2', file: 'sextou.png', color: 'rgb(250, 196, 21)' },
-          { id: 'b2', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' },
-          { id: 'b2', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' },
-          // { id: 'b3', file: 'meu-banner.png', color: '#0000ff' },
+          { id: 'b2', file: 'saldao.png', color: '#facc15' },
+          { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' },
+          { id: 'b4', file: 'superaçougue.png', color: '#6f3107' },
+          { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' },
+          { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' },
+          { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' },
+          { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' },
       ], 
       backgrounds: [ 
           { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, 
-          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #47f1fd, #ca8a04)' } 
+          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } 
       ] 
   };
 
@@ -140,74 +137,89 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
-  
-  // Gerar Lote
   const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-
-  // Gerar Unitário (NOVA FUNÇÃO)
-  const generateSingle = async () => {
-      setIsGenerating(true);
-      const el = document.getElementById('single-ghost'); 
-      if(el) {
-          const c = await html2canvas(el, { scale: 2, useCORS: true });
-          // Cria um PDF de 1 página
-          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
-          const w = pdf.internal.pageSize.getWidth(); 
-          const h = pdf.internal.pageSize.getHeight();
-          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-          pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`);
-      }
-      setIsGenerating(false);
-  };
+  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
 
   return (
-    <div className="flex h-full flex-col md:flex-row bg-slate-200 overflow-hidden">
-        <div className="w-[400px] bg-white h-full flex flex-col border-r shadow-xl z-20 overflow-y-auto">
-            <div className={`p-4 text-white ${mode==='admin'?'bg-slate-900':'bg-blue-900'}`}><h2 className="font-bold uppercase">{mode==='admin'?'Configurar Encarte':'Fábrica Própria'}</h2></div>
-            <div className="flex border-b"><button onClick={()=>setActiveTab('content')} className={`flex-1 py-3 font-bold ${activeTab==='content'?'text-blue-600 border-b-2':''}`}>Dados</button><button onClick={()=>setActiveTab('design')} className={`flex-1 py-3 font-bold ${activeTab==='design'?'text-blue-600 border-b-2':''}`}>Visual</button></div>
-            <div className="p-4 space-y-4">
+    <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
+        {/* SIDEBAR DA FÁBRICA */}
+        <div className="w-[400px] bg-white h-full flex flex-col border-r border-slate-200 shadow-xl z-20">
+            <div className={`p-6 text-white bg-gradient-to-r ${mode==='admin' ? 'from-slate-900 to-slate-800' : 'from-blue-600 to-blue-800'}`}>
+                <h2 className="font-extrabold uppercase tracking-wider text-sm flex items-center gap-2"><Sliders size={18}/> {mode==='admin'?'Editor Admin':'Fábrica Própria'}</h2>
+            </div>
+            
+            <div className="flex border-b bg-slate-50">
+                <button onClick={()=>setActiveTab('content')} className={`flex-1 py-4 font-bold text-sm transition-colors ${activeTab==='content'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}>1. Dados</button>
+                <button onClick={()=>setActiveTab('design')} className={`flex-1 py-4 font-bold text-sm transition-colors ${activeTab==='design'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}>2. Visual</button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                 {activeTab === 'content' ? (
-                    <>
-                        <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}
-                        {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold mt-2">{bulkProducts.length} produtos carregados.</p>}
-                        </div><hr/>
+                    <div className="space-y-5">
+                        <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center">
+                            <h3 className="text-blue-900 font-bold text-sm mb-3">GERAÇÃO EM MASSA</h3>
+                            <label className="block w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-lg cursor-pointer text-xs font-bold uppercase hover:bg-blue-50 hover:border-blue-500 transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
+                            {mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all">{isGenerating ? `Gerando...` : `Baixar Todos (${bulkProducts.length})`}</button>)}
+                            {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold flex items-center justify-center gap-1"><CheckCircle size={12}/> {bulkProducts.length} produtos carregados</p>}
+                        </div>
                         
-                        <div><label className="text-xs font-bold uppercase">Produto (Teste)</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-2 border rounded font-bold h-20"/></div>
-                        <div className="grid grid-cols-2 gap-2"><div><label className="text-xs font-bold uppercase">Preço</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-2 border rounded font-bold"/></div><div><label className="text-xs font-bold uppercase">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-2 border rounded">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
-                        <div><label className="text-xs font-bold uppercase">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-2 border rounded"/></div>
-                        <div><label className="text-xs font-bold uppercase">Rodapé/Data</label><input type="text" value={product.date} onChange={e=>setProduct({...product, date:e.target.value})} className="w-full p-2 border rounded"/></div>
-                        <div className="flex items-center gap-2 border p-2 rounded"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})}/><label className="text-xs font-bold uppercase">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full border-b outline-none"/></div>
+                        <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
+
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24"/></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div>
+                        </div>
                         
-                        {/* BOTÃO DE DOWNLOAD UNITÁRIO - SÓ APARECE NA LOJA */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>setProduct({...product, date:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})} className="w-5 h-5 text-blue-600 rounded"/>
+                            <div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase block">Mostrar Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" placeholder="Ex: 10,99"/></div>
+                        </div>
+                        
                         {mode === 'local' && (
-                            <button onClick={generateSingle} disabled={isGenerating} className="w-full py-3 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-700 mt-4 flex items-center justify-center gap-2">
-                                {isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> Baixar Este Cartaz (PDF)</>}
+                            <button onClick={generateSingle} disabled={isGenerating} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mt-4">
+                                {isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}
                             </button>
                         )}
                     </>
                 ) : (
-                    <>
-                        <div className="flex justify-between items-center mb-2">
-                             {presets.length > 0 && (<div className="relative group"><button className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Bookmark size={12}/> Carregar</button><div className="absolute left-0 top-full bg-white shadow-xl border rounded hidden group-hover:block w-48 z-20">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-100 text-xs flex justify-between cursor-pointer"><span>{p.name}</span><span onClick={(e)=>deletePreset(i,e)} className="text-red-500 font-bold">x</span></div>)}</div></div>)}
-                             <button onClick={()=>savePreset(design)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Save size={12}/> Salvar</button>
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                             <div className="flex items-center gap-2 text-purple-800 font-bold text-xs"><Bookmark size={14}/> <span>PRESETS</span></div>
+                             <div className="flex gap-2">
+                                {presets.length > 0 && (<div className="relative group"><button className="text-xs bg-white text-purple-700 px-3 py-1.5 rounded shadow font-bold hover:bg-purple-100">Carregar</button><div className="absolute right-0 top-full mt-2 bg-white shadow-xl border rounded-lg hidden group-hover:block w-48 z-20 p-2 space-y-1">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-50 text-xs flex justify-between cursor-pointer rounded"><span>{p.name}</span><span onClick={(e)=>deletePreset(i,e)} className="text-red-500 font-bold px-2 hover:bg-red-50 rounded">×</span></div>)}</div></div>)}
+                                <button onClick={()=>savePreset(design)} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded shadow font-bold hover:bg-purple-700">Salvar</button>
+                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className="p-2 border rounded text-xs">Vertical</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className="p-2 border rounded text-xs">Horizontal</button></div>
-                        <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Banners</label><div className="grid grid-cols-2 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div>
-                        <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Fundos</label><div className="grid grid-cols-3 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div>
-                        <div className="grid grid-cols-2 gap-2 mt-2"><div><label className="text-xs font-bold uppercase">Texto</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full"/></div><div><label className="text-xs font-bold uppercase">Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full"/></div></div>
-                        <div className="bg-slate-50 p-3 rounded border mt-3"><h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Sliders size={12}/> Ajustes Manuais</h3><div className="grid grid-cols-3 gap-3"><div><label className="text-[10px] font-bold">Nome</label><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div><div><label className="text-[10px] font-bold">Preço</label><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div><div><label className="text-[10px] font-bold">Posição</label><input type="range" min="-50" max="50" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div></div></div>
+
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
+
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'cover'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Fundos</label><div className="grid grid-cols-4 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.backgroundImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
+
+                        <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Ajuste Fino</h3>
+                            <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
+                            <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
+                            <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Posição Vertical</label><span className="text-[10px] font-bold text-blue-600">{design.priceY}px</span></div><input type="range" min="-100" max="100" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
+                        </div>
                     </>
                 )}
             </div>
         </div>
-        <div className="flex-1 flex items-center justify-center bg-slate-300 overflow-hidden relative"><div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'}}><Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div></div>
-        
-        {/* ÁREA GHOST: AQUI ESTÁ O SEGREDO DO DOWNLOAD */}
+        <div className="flex-1 flex items-center justify-center bg-slate-200 overflow-hidden relative">
+            <div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'}}><Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div>
+        </div>
         <div style={{position:'absolute', top:0, left:'-9999px'}}>
-            {/* 1. Ghost para Lista do Excel (Se houver) */}
             {bulkProducts.map((p, i) => (<Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />))}
-            
-            {/* 2. Ghost para Cartaz Unitário (Sempre presente) */}
             <Poster id="single-ghost" product={product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />
         </div>
     </div>
@@ -215,7 +227,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
 };
 
 // ============================================================================
-// 4. ADMIN DASHBOARD
+// 4. ADMIN DASHBOARD MODERNIZADO
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
@@ -233,7 +245,7 @@ const AdminDashboard = ({ onLogout }) => {
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
   const send = async () => {
-      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados! Carregue o Excel e preencha título/data.");
+      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
       setProcessing(true); setProgress(0);
       try {
           const { bulkProducts, design } = factoryData;
@@ -249,7 +261,6 @@ const AdminDashboard = ({ onLogout }) => {
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, pdf.output('blob'), { contentType: 'application/pdf' });
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          
           await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
           alert("Enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
@@ -257,35 +268,40 @@ const AdminDashboard = ({ onLogout }) => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100">
-        <div className="bg-slate-900 text-white p-4 flex justify-between shadow sticky top-0 z-50"><h1 className="font-bold flex gap-2 items-center"><Monitor/> ADMIN</h1><button onClick={onLogout} className="text-xs bg-red-600 px-3 py-1 rounded">Sair</button></div>
+    <div className="flex flex-col h-screen bg-slate-50 font-sans">
+        <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
+            <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Monitor className="text-blue-400"/> PAINEL ADMIN</h1>
+            <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
+        </div>
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                <div className="p-4 bg-slate-50 border-b flex gap-2 items-end">
-                    <div className="flex-1"><label className="text-xs font-bold text-slate-500">Título</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-2 border rounded"/></div>
-                    <div className="w-32"><label className="text-xs font-bold text-slate-500">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-2 border rounded"/></div>
-                    <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?`${progress}%`:'ENVIAR'}</button>
+                <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30">
+                    <div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/></div>
+                    <div className="w-36"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/></div>
+                    <button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all flex items-center gap-2">{processing?`Enviando ${progress}%`:<><Upload size={18}/> PUBLICAR</>}</button>
                 </div>
-                <div className="flex-1 overflow-hidden relative">
-                    {/* A Factory é carregada aqui e atualiza o 'factoryData' do Admin */}
-                    <PosterFactory mode="admin" onAdminReady={setFactoryData} />
-                </div>
+                <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
             </div>
-            <div className="w-1/2 h-full bg-slate-100 p-6 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded shadow"><div className="flex justify-between items-center mb-2"><h3 className="font-bold text-slate-700">Downloads</h3><button onClick={resetDownloads} className="text-xs text-red-500 underline">Zerar</button></div><div className="space-y-1">{['loja01','loja02','loja03','loja04','loja05'].map(s=><div key={s} className="flex justify-between text-xs p-1 border-b"><span>{s}</span><span className="font-bold">{stats[s]||0}</span></div>)}</div></div>
-                    <div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-slate-700 mb-2">Recentes</h3><div className="space-y-1 max-h-40 overflow-y-auto">{files.map(f=><div key={f.id} className="flex justify-between text-xs p-1 border-b"><span>{f.title} ({formatDateSafe(f.expiry_date)})</span><button onClick={()=>handleDelete(f.id)} className="text-red-500"><Trash2 size={12}/></button></div>)}</div></div>
+            <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-700 flex items-center gap-2"><BarChart className="text-blue-500"/> Downloads por Loja</h3><button onClick={resetDownloads} className="text-xs text-red-500 hover:text-red-700 font-bold flex items-center gap-1"><RefreshCcw size={10}/> ZERAR</button></div>
+                        <div className="space-y-2">{['loja01','loja02','loja03','loja04','loja05'].map(s=><div key={s} className="flex justify-between text-sm p-3 bg-slate-50 rounded-lg border border-slate-100"> <span className="font-bold text-slate-600 uppercase">{s}</span> <span className="font-bold text-blue-600 bg-blue-50 px-2 rounded">{stats[s]||0}</span> </div>)}</div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Clock className="text-purple-500"/> Encartes Ativos</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">{files.map(f=><div key={f.id} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg border border-slate-100 group"><div><p className="font-bold text-slate-800">{f.title}</p><p className="text-xs text-slate-400">Vence: {formatDateSafe(f.expiry_date)}</p></div><button onClick={()=>handleDelete(f.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button></div>)}</div>
+                    </div>
                 </div>
             </div>
         </div>
-        {/* Ghost do Admin para gerar PDF (usa dados da Factory) */}
         <div style={{position:'absolute', top:0, left:'-9999px'}}>{factoryData.bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={factoryData.design} width={factoryData.design.orientation==='portrait'?794:1123} height={factoryData.design.orientation==='portrait'?1123:794} />)}</div>
     </div>
   );
 };
 
 // ============================================================================
-// 5. LOJA LAYOUT
+// 5. LOJA LAYOUT MODERNIZADO
 // ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
@@ -296,25 +312,45 @@ const StoreLayout = ({ user, onLogout }) => {
   const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); } catch(e){} };
 
   return (
-    <div className="flex h-screen bg-slate-200 overflow-hidden">
-        <div className="w-20 bg-slate-900 flex flex-col items-center py-6 text-white z-50 shadow-2xl">
-            <div className="mb-8 p-2 bg-white rounded-full"><ImageIcon className="text-red-600"/></div>
-            <button onClick={()=>setView('files')} className={`p-3 mb-4 rounded-xl transition-all ${view==='files'?'bg-green-600 scale-110':'hover:bg-slate-800 text-slate-400'}`}><FileText size={24}/></button>
-            <button onClick={()=>setView('factory')} className={`p-3 mb-4 rounded-xl transition-all ${view==='factory'?'bg-blue-600 scale-110':'hover:bg-slate-800 text-slate-400'}`}><Layers size={24}/></button>
-            <div className="mt-auto"><button onClick={onLogout} className="p-3 hover:bg-red-600 rounded-xl transition-colors text-slate-400"><LogOut size={24}/></button></div>
+    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
+        {/* SIDEBAR MODERNA */}
+        <div className="w-24 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center py-8 text-white z-50 shadow-2xl">
+            <div className="mb-10 p-3 bg-white/10 rounded-2xl backdrop-blur-sm"><ImageIcon className="text-white w-8 h-8"/></div>
+            
+            <div className="space-y-6 flex flex-col w-full px-4">
+                <button onClick={()=>setView('files')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='files'?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    <LayoutTemplate size={24}/>
+                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Matriz</span>
+                </button>
+                <button onClick={()=>setView('factory')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory'?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    <Layers size={24}/>
+                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Fábrica</span>
+                </button>
+            </div>
+
+            <div className="mt-auto px-4 w-full"><button onClick={onLogout} className="p-4 w-full flex justify-center hover:bg-red-600/20 text-slate-400 hover:text-red-500 rounded-2xl transition-all"><LogOut size={24}/></button></div>
         </div>
+        
         <div className="flex-1 overflow-hidden relative">
             {view === 'files' && (
                 <div className="p-10 h-full overflow-y-auto">
-                    <h2 className="text-3xl font-bold text-slate-800 mb-6 flex gap-3 items-center"><FileText className="text-green-600"/> Encartes da Matriz</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <h2 className="text-3xl font-extrabold text-slate-800 mb-8 flex gap-3 items-center"><LayoutTemplate className="text-blue-600"/> Encartes da Matriz</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {files.length > 0 ? files.map(f=>(
-                            <div key={f.id} className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600 hover:shadow-2xl transition-all">
-                                <div className="flex justify-between mb-4"><span className="text-xs bg-slate-100 px-2 py-1 rounded font-bold">Vence: {formatDateSafe(f.expiry_date)}</span></div>
-                                <h3 className="font-bold text-lg mb-4">{f.title}</h3>
-                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</a>
+                            <div key={f.id} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group hover:-translate-y-1">
+                                <div className="flex justify-between mb-6">
+                                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500"><FileText size={20}/></div>
+                                    <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
+                                </div>
+                                <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
+                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-4 bg-slate-900 text-white font-bold rounded-xl text-center hover:bg-blue-600 shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 group-hover:scale-105"><Download size={20}/> Baixar PDF Completo</a>
                             </div>
-                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível no momento.</div>}
+                        )) : (
+                            <div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400">
+                                <FileText size={48} className="mb-4 opacity-20"/>
+                                <p>Nenhum encarte disponível no momento.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -325,12 +361,42 @@ const StoreLayout = ({ user, onLogout }) => {
 };
 
 // ============================================================================
-// 6. LOGIN & APP
+// 6. LOGIN MODERNIZADO
 // ============================================================================
 const LoginScreen = ({ onLogin }) => {
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false); const [zooming, setZooming] = useState(false);
-  const handleLogin = async (e) => { e.preventDefault(); setLoading(true); const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if(error) { alert("Erro: "+error.message); setLoading(false); } else { setZooming(true); setTimeout(() => onLogin(data.session), 1200); } };
-  return (<div className={`h-screen w-screen bg-slate-900 flex flex-col items-center justify-center overflow-hidden transition-all duration-1000 ${zooming?'scale-[20] opacity-0':'scale-100'}`}><div className="mb-8 p-6 bg-white rounded-full shadow-2xl relative z-10"><ImageIcon size={64} className="text-red-600"/></div><div className="bg-white p-8 rounded shadow-xl w-96 z-10"><h2 className="text-2xl font-bold text-center mb-6">Acesso Restrito</h2><form onSubmit={handleLogin} className="space-y-4"><input value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-2 border rounded" placeholder="Email"/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-2 border rounded" placeholder="Senha"/><button disabled={loading} className="w-full bg-red-600 text-white font-bold py-3 rounded">{loading?'...':'ENTRAR'}</button></form></div></div>);
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false);
+  const handleLogin = async (e) => { e.preventDefault(); setLoading(true); const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if(error) { alert("Erro: "+error.message); setLoading(false); } else { setTimeout(() => onLogin(data.session), 500); } };
+  
+  return (
+    <div className="h-screen w-screen bg-gradient-to-br from-blue-900 via-slate-900 to-red-900 flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden">
+        {/* Efeitos de Fundo */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px'}}></div>
+        
+        <div className="w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/20 p-10 rounded-3xl shadow-2xl flex flex-col items-center relative z-10">
+            {/* LOGO AQUI */}
+            <img src="/assets/logo-full.png" alt="Cartaz No Ponto" className="w-48 mb-8 drop-shadow-xl animate-fade-in-up"/>
+            
+            <h2 className="text-2xl font-bold text-white mb-2">Bem-vindo</h2>
+            <p className="text-blue-200 text-sm mb-8">Acesse sua central de criação</p>
+            
+            <form onSubmit={handleLogin} className="w-full space-y-5">
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-blue-100 uppercase ml-1">Email</label>
+                    <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="seu@email.com"/>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-blue-100 uppercase ml-1">Senha</label>
+                    <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="••••••••"/>
+                </div>
+                
+                <button disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-red-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-1 transition-all disabled:opacity-50 mt-4">
+                    {loading ? <Loader className="animate-spin mx-auto"/> : 'ENTRAR NO SISTEMA'}
+                </button>
+            </form>
+        </div>
+        <p className="mt-8 text-white/20 text-xs">© 2026 Cartaz No Ponto. Todos os direitos reservados.</p>
+    </div>
+  );
 };
 
 const App = () => {
