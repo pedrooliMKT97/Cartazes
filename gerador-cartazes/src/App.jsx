@@ -120,13 +120,17 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const library = { 
       banners: [ 
           { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
-          { id: 'b2', file: 'segundaleve.png', color: '#facc15' },
-          // Adicione os seus aqui assim:
+          { id: 'b2', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' },
+          { id: 'b2', file: 'superaçougue.png', color: '#6f3107' },
+          { id: 'b2', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' },
+          { id: 'b2', file: 'sextou.png', color: 'rgb(250, 196, 21)' },
+          { id: 'b2', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' },
+          { id: 'b2', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' },
           // { id: 'b3', file: 'meu-banner.png', color: '#0000ff' },
       ], 
       backgrounds: [ 
           { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, 
-          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } 
+          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #47f1fd, #ca8a04)' } 
       ] 
   };
 
