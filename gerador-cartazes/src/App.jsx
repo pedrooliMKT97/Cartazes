@@ -120,7 +120,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const library = { 
       banners: [ 
           { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
-          { id: 'b2', file: 'saldao.png', color: '#facc15' },
+          { id: 'b2', file: 'segundaleve.png', color: '#facc15' },
           // Adicione os seus aqui assim:
           // { id: 'b3', file: 'meu-banner.png', color: '#0000ff' },
       ], 
