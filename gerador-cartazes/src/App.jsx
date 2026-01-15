@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -10,21 +10,21 @@ import {
   Eye, CheckCircle, RefreshCcw, X, List, Sliders, MoveVertical, Save, Bookmark, Loader
 } from 'lucide-react';
 
-// === CONFIGURAÇÃO PADRÃO (GLOBAL) ===
+// === CONFIGURAÇÃO PADRÃO ===
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
   nameScale: 100, priceScale: 100, priceY: 0
 };
 
-// Formatação segura de data
+// Formatação Segura
 const formatDateSafe = (dateStr) => {
   if (!dateStr) return 'Data n/a';
   try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
 };
 
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ (VISUAL)
+// 1. COMPONENTE DE CARTAZ (V29 ORIGINAL)
 // ============================================================================
 const Poster = ({ product, design, width, height, id }) => {
   if (!product) return null;
@@ -81,15 +81,12 @@ const Poster = ({ product, design, width, height, id }) => {
 };
 
 // ============================================================================
-// 2. HOOK PRESETS (SALVAR NO NAVEGADOR)
+// 2. HOOK PRESETS
 // ============================================================================
 const usePresets = (setDesign) => {
   const [presets, setPresets] = useState([]);
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('poster_presets');
-      if (saved) setPresets(JSON.parse(saved));
-    } catch (e) { localStorage.removeItem('poster_presets'); }
+    try { const saved = localStorage.getItem('poster_presets'); if (saved) setPresets(JSON.parse(saved)); } catch (e) {}
   }, []);
   const savePreset = (current) => {
     const name = prompt("Nome do Ajuste (ex: Padrão Oferta):");
@@ -107,7 +104,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY DE CARTAZES (COMPARTILHADA)
+// 3. FACTORY (COMPARTILHADA) - COM ALERTA DE SUCESSO CORRIGIDO
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -122,10 +119,24 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
 
-  const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
+  const handleExcel = (e) => { 
+      const f = e.target.files[0]; 
+      if(!f) return; 
+      const r = new FileReader(); 
+      r.onload = (evt) => { 
+          const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
+          const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
+          const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); 
+          setBulkProducts(m); 
+          // --- AQUI ESTÁ A CORREÇÃO: MOSTRA O ALERTA SEMPRE ---
+          alert(`${m.length} produtos carregados com sucesso!`);
+      }; 
+      r.readAsBinaryString(f); 
+  };
+
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
-  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const canvas = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
+  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-200 overflow-hidden">
@@ -135,7 +146,9 @@ const PosterFactory = ({ mode, onAdminReady }) => {
             <div className="p-4 space-y-4">
                 {activeTab === 'content' ? (
                     <>
-                        <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}</div><hr/>
+                        <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}
+                        {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold mt-2">{bulkProducts.length} produtos carregados.</p>}
+                        </div><hr/>
                         <div><label className="text-xs font-bold uppercase">Produto (Teste)</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-2 border rounded font-bold h-20"/></div>
                         <div className="grid grid-cols-2 gap-2"><div><label className="text-xs font-bold uppercase">Preço</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-2 border rounded font-bold"/></div><div><label className="text-xs font-bold uppercase">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-2 border rounded">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
                         <div><label className="text-xs font-bold uppercase">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-2 border rounded"/></div>
@@ -169,17 +182,21 @@ const PosterFactory = ({ mode, onAdminReady }) => {
 const AdminDashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
   const [files, setFiles] = useState([]);
-  const [processing, setProcessing] = useState(false);
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
 
   useEffect(() => { fetchData(); }, []);
   const fetchData = async () => { try { const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false }); if(f) setFiles(f); const { data: d } = await supabase.from('downloads').select('*'); if(d) { const c = {}; d.forEach(x => { const n = x.store_email.split('@')[0]; c[n] = (c[n]||0)+1; }); setStats(c); } } catch(e){} };
   
+  const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
+  const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
+
   const send = async () => {
-      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
-      setProcessing(true);
+      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados! Carregue o Excel e preencha título/data.");
+      setProcessing(true); setProgress(0);
       try {
           const { bulkProducts, design } = factoryData;
           const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
@@ -187,19 +204,19 @@ const AdminDashboard = ({ onLogout }) => {
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); }
+              setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,50));
           }
           const fileName = `${Date.now()}-ENCARTE.pdf`;
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, pdf.output('blob'), { contentType: 'application/pdf' });
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl }]);
-          alert("Sucesso!"); setTitle(''); setExpiry(''); fetchData();
+          
+          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
+          alert("Enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
-  const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
-  const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
   return (
     <div className="flex flex-col h-screen bg-slate-100">
@@ -209,7 +226,7 @@ const AdminDashboard = ({ onLogout }) => {
                 <div className="p-4 bg-slate-50 border-b flex gap-2 items-end">
                     <div className="flex-1"><label className="text-xs font-bold text-slate-500">Título</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-2 border rounded"/></div>
                     <div className="w-32"><label className="text-xs font-bold text-slate-500">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-2 border rounded"/></div>
-                    <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?'...':'ENVIAR'}</button>
+                    <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?`${progress}%`:'ENVIAR'}</button>
                 </div>
                 <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
             </div>
@@ -226,15 +243,23 @@ const AdminDashboard = ({ onLogout }) => {
 };
 
 // ============================================================================
-// 5. LOJA LAYOUT (SEGURA)
+// 5. LOJA LAYOUT
 // ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [downloadingItem, setDownloadingItem] = useState(null);
 
   useEffect(() => { loadFiles(); }, []);
   const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); } catch(e) {} };
-  const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); } catch(e){} };
+  const registerDownload = async (fileId, productName = null) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId, product_name: productName || 'PDF Completo' }]); } catch(e){} };
+  
+  const handleDownloadSingle = async (product, design, index, fileId) => {
+      setDownloadingItem(index); const el = document.getElementById(`modal-ghost-${index}`);
+      if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); const l = document.createElement('a'); l.href = c.toDataURL('image/png'); l.download = `${product.name.substring(0,10)}.png`; l.click(); await registerDownload(fileId, product.name); }
+      setDownloadingItem(null);
+  };
 
   return (
     <div className="flex h-screen bg-slate-200 overflow-hidden">
@@ -250,12 +275,37 @@ const StoreLayout = ({ user, onLogout }) => {
                     <h2 className="text-3xl font-bold text-slate-800 mb-6 flex gap-3 items-center"><FileText className="text-green-600"/> Encartes da Matriz</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {files.length > 0 ? files.map(f=>(
-                            <div key={f.id} className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600 hover:shadow-2xl transition-all">
+                            <div key={f.id} onClick={() => setSelectedCampaign(f)} className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600 hover:shadow-2xl transition-all cursor-pointer group">
                                 <div className="flex justify-between mb-4"><span className="text-xs bg-slate-100 px-2 py-1 rounded font-bold">Vence: {formatDateSafe(f.expiry_date)}</span></div>
-                                <h3 className="font-bold text-lg mb-4">{f.title}</h3>
-                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</a>
+                                <h3 className="font-bold text-lg mb-2">{f.title}</h3>
+                                <p className="text-xs text-gray-500 mb-4">Clique para ver os cartazes</p>
+                                <button onClick={(e) => {e.stopPropagation(); window.open(f.file_url); registerDownload(f.id);}} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</button>
                             </div>
-                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível.</div>}
+                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível no momento.</div>}
+                    </div>
+                </div>
+            )}
+
+            {selectedCampaign && (
+                <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-10 backdrop-blur-sm">
+                    <div className="bg-slate-100 w-full h-full max-w-7xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                        <div className="bg-white p-4 border-b flex justify-between items-center"><div><h2 className="text-xl font-bold text-slate-800">{selectedCampaign.title}</h2></div><button onClick={()=>setSelectedCampaign(null)} className="p-2 hover:bg-gray-200 rounded-full"><X/></button></div>
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-200">
+                            {Array.isArray(selectedCampaign.products_json) ? (
+                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {selectedCampaign.products_json.map((prod, i) => {
+                                        const d = selectedCampaign.design_json ? { ...DEFAULT_DESIGN, ...selectedCampaign.design_json } : DEFAULT_DESIGN;
+                                        return (
+                                            <div key={i} className="bg-white rounded-lg shadow p-2 flex flex-col items-center">
+                                                <div className="border mb-2 overflow-hidden relative bg-gray-50" style={{width: '100%', aspectRatio: d.orientation === 'portrait' ? '0.7' : '1.4'}}><div style={{transform: `scale(${d.orientation === 'portrait' ? 0.2 : 0.25})`, transformOrigin: 'top left', position: 'absolute'}}><Poster id={`modal-ghost-${i}`} product={prod} design={d} width={d.orientation==='portrait'?794:1123} height={d.orientation==='portrait'?1123:794} /></div></div>
+                                                <p className="text-xs font-bold text-center mb-2 line-clamp-1">{prod.name}</p>
+                                                <button onClick={() => handleDownloadSingle(prod, d, i, selectedCampaign.id)} disabled={downloadingItem === i} className="w-full py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex justify-center items-center gap-1">{downloadingItem === i ? <Loader className="animate-spin" size={12}/> : <><Download size={12}/> Baixar</>}</button>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : (<div className="flex flex-col items-center justify-center h-full text-gray-500"><p>Campanha antiga. Apenas PDF disponível.</p></div>)}
+                        </div>
                     </div>
                 </div>
             )}
