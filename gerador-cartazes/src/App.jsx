@@ -103,7 +103,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY (COM BOTÃO DE DOWNLOAD ÚNICO)
+// 3. FACTORY MODERNIZADA (AGORA CORRIGIDA)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -114,9 +114,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
-  // ==================================================================================
-  // AQUI VOCÊ CONFIGURA SEUS BANNERS E FUNDOS
-  // ==================================================================================
   const library = { 
       banners: [ 
           { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
@@ -140,24 +137,8 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
-  
-  // Gerar Lote
   const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-
-  // Gerar Unitário (NOVA FUNÇÃO)
-  const generateSingle = async () => {
-      setIsGenerating(true);
-      const el = document.getElementById('single-ghost'); 
-      if(el) {
-          const c = await html2canvas(el, { scale: 2, useCORS: true });
-          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
-          const w = pdf.internal.pageSize.getWidth(); 
-          const h = pdf.internal.pageSize.getHeight();
-          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-          pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`);
-      }
-      setIsGenerating(false);
-  };
+  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
@@ -205,7 +186,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                                 {isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}
                             </button>
                         )}
-                    </>
+                    </div> // <--- AQUI ESTAVA O ERRO (Corrigido de </> para </div>)
                 ) : (
                     <div className="space-y-6">
                         <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg border border-purple-100">
@@ -230,7 +211,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
                             <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Posição Vertical</label><span className="text-[10px] font-bold text-blue-600">{design.priceY}px</span></div><input type="range" min="-100" max="100" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
                         </div>
-                    </>
+                    </div> // <--- AQUI TAMBÉM (Corrigido de </> para </div>)
                 )}
             </div>
         </div>
