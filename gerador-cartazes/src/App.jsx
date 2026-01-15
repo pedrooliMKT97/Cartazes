@@ -10,29 +10,25 @@ import {
   Eye, CheckCircle, RefreshCcw, X, List, Sliders, MoveVertical, Save, Bookmark, Loader
 } from 'lucide-react';
 
-// === FUNÇÃO DE SEGURANÇA PARA DATAS ===
-const formatDateSafe = (dateStr) => {
-  if (!dateStr) return 'Sem Data';
-  try {
-    return dateStr.split('-').reverse().join('/');
-  } catch (e) {
-    return dateStr || '-';
-  }
-};
-
-// === DESIGN PADRÃO ===
+// === CONFIGURAÇÃO PADRÃO ===
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
   nameScale: 100, priceScale: 100, priceY: 0
 };
 
+// === FORMATAÇÃO SEGURA DE DATA ===
+const formatDateSafe = (dateStr) => {
+  if (!dateStr) return 'Sem Data';
+  try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
+};
+
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ (V25 - IMPOSSÍVEL DE QUEBRAR)
+// 1. COMPONENTE DE CARTAZ (VISUAL)
 // ============================================================================
 const Poster = ({ product, design, width, height, id }) => {
   if (!product) return null;
-  const d = { ...DEFAULT_DESIGN, ...design }; // Garante chaves
+  const d = design || DEFAULT_DESIGN; 
 
   const safePrice = product.price || '0,00';
   const priceParts = safePrice.includes(',') ? safePrice.split(',') : [safePrice, '00'];
@@ -43,7 +39,6 @@ const Poster = ({ product, design, width, height, id }) => {
   const H_PRECO = H_MIOLO * 0.65;
   const H_LIMITE = H_MIOLO * 0.15;
 
-  // Escalas Seguras
   const scName = (Number(d.nameScale) || 100) / 100;
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const posY = Number(d.priceY) || 0;
@@ -86,112 +81,29 @@ const Poster = ({ product, design, width, height, id }) => {
 };
 
 // ============================================================================
-// 2. HOOK PRESETS (SALVA AJUSTES NO NAVEGADOR)
-// ============================================================================
-const usePresets = (setDesign) => {
-  const [presets, setPresets] = useState([]);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('poster_presets');
-      if (saved) setPresets(JSON.parse(saved));
-    } catch (e) { localStorage.removeItem('poster_presets'); }
-  }, []);
-  const savePreset = (current) => {
-    const name = prompt("Nome do Ajuste (ex: Padrão Oferta):");
-    if (!name) return;
-    const novos = [...presets, { name, data: current }];
-    setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos));
-  };
-  const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data});
-  const deletePreset = (idx, e) => {
-    e.stopPropagation(); if(!confirm("Apagar?")) return;
-    const novos = presets.filter((_, i) => i !== idx);
-    setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos));
-  };
-  return { presets, savePreset, loadPreset, deletePreset };
-};
-
-// ============================================================================
-// 3. FACTORY COMPARTILHADA (LOCAL & ADMIN)
-// ============================================================================
-const PosterFactory = ({ mode, onAdminReady }) => {
-  const [activeTab, setActiveTab] = useState('content');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [bulkProducts, setBulkProducts] = useState([]);
-  const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '', unit: 'UN', limit: '', date: '', footer: '' });
-  const [design, setDesign] = useState(DEFAULT_DESIGN);
-  const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
-  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
-
-  useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
-  
-  // Envia dados para o Admin (se estiver no modo admin)
-  useEffect(() => { if(mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
-
-  const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
-  const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
-  const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
-  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`ghost-${i}`); if(el) { const canvas = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-
-  return (
-    <div className="flex h-full flex-col md:flex-row bg-slate-200 overflow-hidden">
-        <div className="w-[400px] bg-white h-full flex flex-col border-r shadow-xl z-20 overflow-y-auto custom-scrollbar">
-            <div className={`p-4 text-white ${mode==='admin'?'bg-slate-900':'bg-blue-900'}`}><h2 className="font-bold uppercase">{mode==='admin'?'Configurar Encarte':'Fábrica Própria'}</h2></div>
-            <div className="flex border-b"><button onClick={()=>setActiveTab('content')} className={`flex-1 py-3 font-bold ${activeTab==='content'?'text-blue-600 border-b-2':''}`}>Dados</button><button onClick={()=>setActiveTab('design')} className={`flex-1 py-3 font-bold ${activeTab==='design'?'text-blue-600 border-b-2':''}`}>Visual</button></div>
-            <div className="p-4 space-y-4">
-                {activeTab === 'content' ? (
-                    <>
-                        <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}</div><hr/>
-                        <div><label className="text-xs font-bold uppercase">Produto (Teste)</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-2 border rounded font-bold h-20"/></div>
-                        <div className="grid grid-cols-2 gap-2"><div><label className="text-xs font-bold uppercase">Preço</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-2 border rounded font-bold"/></div><div><label className="text-xs font-bold uppercase">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-2 border rounded">{units.map(u=><option key={u}>{u}</option>)}</select></div></div>
-                        <div><label className="text-xs font-bold uppercase">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-2 border rounded"/></div>
-                        <div><label className="text-xs font-bold uppercase">Rodapé/Data</label><input type="text" value={product.date} onChange={e=>setProduct({...product, date:e.target.value})} className="w-full p-2 border rounded"/></div>
-                        <div className="flex items-center gap-2 border p-2 rounded"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})}/><label className="text-xs font-bold uppercase">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full border-b outline-none"/></div>
-                    </>
-                ) : (
-                    <>
-                        <div className="flex justify-between items-center mb-2">
-                             {presets.length > 0 && (<div className="relative group"><button className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Bookmark size={12}/> Carregar</button><div className="absolute left-0 top-full bg-white shadow-xl border rounded hidden group-hover:block w-48 z-20">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-100 text-xs flex justify-between cursor-pointer"><span>{p.name}</span><span onClick={(e)=>deletePreset(i,e)} className="text-red-500 font-bold">x</span></div>)}</div></div>)}
-                             <button onClick={()=>savePreset(design)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Save size={12}/> Salvar</button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className="p-2 border rounded text-xs">Vertical</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className="p-2 border rounded text-xs">Horizontal</button></div>
-                        <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Banners</label><div className="grid grid-cols-2 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div>
-                        <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Fundos</label><div className="grid grid-cols-3 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div>
-                        <div className="grid grid-cols-2 gap-2 mt-2"><div><label className="text-xs font-bold uppercase">Texto</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full"/></div><div><label className="text-xs font-bold uppercase">Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full"/></div></div>
-                        <div className="bg-slate-50 p-3 rounded border mt-3">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Sliders size={12}/> Ajustes Manuais</h3>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div><label className="text-[10px] font-bold">Nome</label><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
-                                <div><label className="text-[10px] font-bold">Preço</label><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
-                                <div><label className="text-[10px] font-bold">Posição</label><input type="range" min="-50" max="50" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center bg-slate-300 overflow-hidden relative"><div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'}}><Poster product={product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div></div>
-        {mode === 'local' && (<div style={{position: 'absolute', top: 0, left: '-9999px'}}>{bulkProducts.map((p, i) => (<Poster key={i} id={`ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />))}</div>)}
-    </div>
-  );
-};
-
-// ============================================================================
-// 4. ADMIN DASHBOARD
+// 2. PAINEL ADMIN
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
   const [files, setFiles] = useState([]);
+  const [processing, setProcessing] = useState(false);
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
   
-  // Estado que recebe da Factory
-  const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
+  // Estados da Fábrica (Embutida no Admin)
+  const [bulkProducts, setBulkProducts] = useState([]); 
+  const [design, setDesign] = useState(DEFAULT_DESIGN);
+  const [presets, setPresets] = useState([]);
 
-  useEffect(() => { fetchData(); }, []);
+  // Library
+  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
+
+  // Inicialização
+  useEffect(() => { 
+      fetchData(); 
+      try { const saved = localStorage.getItem('poster_presets'); if(saved) setPresets(JSON.parse(saved)); } catch(e){}
+  }, []);
+
   const fetchData = async () => {
     try {
         const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false });
@@ -203,15 +115,22 @@ const AdminDashboard = ({ onLogout }) => {
         }
     } catch(e) { console.error(e); }
   };
-  
-  const resetDownloads = async () => { if(confirm("Zerar downloads?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
-  const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
 
+  // Funções da Fábrica
+  const handleExcel = (e) => { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = data.map(item => ({ name: item['Produto']||'Item', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||'Oferta da Matriz', footer: 'Imagens meramente ilustrativas' })); setBulkProducts(m); alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
+  const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
+  const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
+  
+  // Presets
+  const savePreset = () => { const n = prompt("Nome do Ajuste:"); if(n) { const np = [...presets, {name:n, data:design}]; setPresets(np); localStorage.setItem('poster_presets', JSON.stringify(np)); }};
+  const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data});
+  const deletePreset = (idx) => { if(confirm("Apagar?")) { const np = presets.filter((_,i)=>i!==idx); setPresets(np); localStorage.setItem('poster_presets', JSON.stringify(np)); }};
+
+  // Envio
   const send = async () => {
-      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Preencha título, validade e carregue o Excel.");
-      setProcessing(true); setProgress(0);
+      if(!title || !expiry || bulkProducts.length === 0) return alert("Faltam dados!");
+      setProcessing(true);
       try {
-          const { bulkProducts, design } = factoryData;
           const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
           for(let i=0; i<bulkProducts.length; i++) {
@@ -221,7 +140,6 @@ const AdminDashboard = ({ onLogout }) => {
                   if(i>0) pdf.addPage();
                   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
               }
-              setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,50));
           }
           const fileName = `${Date.now()}-ENCARTE.pdf`;
@@ -229,31 +147,76 @@ const AdminDashboard = ({ onLogout }) => {
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
           await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
-          alert("Sucesso!"); setTitle(''); setExpiry(''); fetchData();
+          alert("Sucesso!"); setTitle(''); setExpiry(''); setBulkProducts([]); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
+  
+  const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
+  const resetDownloads = async () => { if(confirm("Zerar downloads?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
   return (
     <div className="flex flex-col h-screen bg-slate-100">
         <div className="bg-slate-900 text-white p-4 flex justify-between shadow sticky top-0 z-50"><h1 className="font-bold flex gap-2 items-center"><Monitor/> ADMIN</h1><button onClick={onLogout} className="text-xs bg-red-600 px-3 py-1 rounded">Sair</button></div>
         <div className="flex-1 flex overflow-hidden">
-            {/* Esquerda: Configuração e Factory */}
-            <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                <div className="p-4 bg-slate-50 border-b flex gap-2 items-end">
+            {/* Esquerda: Configuração */}
+            <div className="w-1/2 h-full flex flex-col border-r bg-white overflow-y-auto">
+                <div className="p-4 bg-slate-50 border-b flex gap-2 items-end sticky top-0 z-20">
                     <div className="flex-1"><label className="text-xs font-bold text-slate-500">Título</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-2 border rounded"/></div>
                     <div className="w-32"><label className="text-xs font-bold text-slate-500">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-2 border rounded"/></div>
-                    <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?`${progress}%`:'ENVIAR'}</button>
+                    <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?'...':'ENVIAR'}</button>
                 </div>
-                {/* Aqui carregamos a Factory em modo Admin, que vai preencher o 'factoryData' */}
-                <div className="flex-1 overflow-hidden relative">
-                    <PosterFactory mode="admin" onAdminReady={setFactoryData} />
+
+                <div className="p-6">
+                    {/* Excel */}
+                    <div className="mb-6 p-4 border rounded bg-blue-50">
+                        <label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow text-center"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
+                        {bulkProducts.length > 0 && <p className="text-center text-xs text-green-700 font-bold mt-2">{bulkProducts.length} produtos carregados.</p>}
+                    </div>
+
+                    {/* Visual */}
+                    <div className="mb-4 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-700">Visual</h3>
+                        <div className="flex gap-2">
+                             {presets.length > 0 && (<div className="relative group"><button className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Bookmark size={12}/> Carregar</button><div className="absolute right-0 top-full bg-white shadow-xl border rounded hidden group-hover:block w-48 z-20">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-100 text-xs flex justify-between cursor-pointer"><span>{p.name}</span><span onClick={(e)=>deletePreset(i)} className="text-red-500 font-bold">x</span></div>)}</div></div>)}
+                             <button onClick={savePreset} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Save size={12}/> Salvar</button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 border p-4 rounded bg-white shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                             <div><label className="text-xs font-bold uppercase">Banners</label><div className="flex gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className="h-8 w-8 rounded cursor-pointer" style={{background:b.color}}></div>)}<label className="h-8 px-2 bg-slate-100 border rounded cursor-pointer flex items-center gap-1 text-[10px]"><Upload size={10}/> <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+                             <div><label className="text-xs font-bold uppercase">Fundos</label><div className="flex gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className="h-8 w-8 rounded cursor-pointer" style={{background:b.color}}></div>)}<label className="h-8 px-2 bg-slate-100 border rounded cursor-pointer flex items-center gap-1 text-[10px]"><Upload size={10}/> <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div><label className="text-xs font-bold uppercase">Texto</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-8 rounded cursor-pointer"/></div>
+                            <div><label className="text-xs font-bold uppercase">Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-8 rounded cursor-pointer"/></div>
+                            <div><label className="text-xs font-bold uppercase">Formato</label><button onClick={()=>setDesign({...design, orientation: design.orientation==='portrait'?'landscape':'portrait'})} className="w-full h-8 border rounded text-xs bg-slate-50 font-bold hover:bg-slate-200">{design.orientation === 'portrait' ? 'Vertical' : 'Horizontal'}</button></div>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded border">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Sliders size={12}/> Ajustes Manuais</h3>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div><label className="text-[10px] font-bold">Tam. Nome</label><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
+                                <div><label className="text-[10px] font-bold">Tam. Preço</label><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
+                                <div><label className="text-[10px] font-bold">Posição</label><input type="range" min="-50" max="50" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Direita: Dashboard */}
+            {/* Direita: Preview e Dashboard */}
             <div className="w-1/2 h-full bg-slate-100 p-6 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-white p-4 rounded shadow flex flex-col items-center mb-6">
+                    <h3 className="text-sm font-bold text-slate-500 mb-2 flex items-center gap-1"><Eye size={14}/> Preview</h3>
+                    <div className="border border-slate-300 shadow-xl overflow-hidden" style={{ width: '180px', height: design.orientation === 'portrait' ? '254px' : '127px' }}>
+                        <div style={{ transform: `scale(${180 / (design.orientation==='portrait'?794:1123)})`, transformOrigin: 'top left' }}>
+                            <Poster product={bulkProducts[0] || { name: 'PRODUTO EXEMPLO', price: '9,99', oldPrice: '12,99', unit: 'UN', limit: '5' }} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded shadow">
                         <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-slate-700">Downloads</h3><button onClick={resetDownloads} className="text-xs text-red-500 underline">Zerar</button></div>
                         <div className="space-y-1">{['loja01','loja02','loja03','loja04','loja05'].map(s=><div key={s} className="flex justify-between text-xs p-1 border-b"><span>{s}</span><span className="font-bold">{stats[s]||0}</span></div>)}</div>
@@ -265,35 +228,46 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
             </div>
         </div>
-        {/* Ghost para geração do PDF do Admin */}
-        <div style={{position:'absolute', top:0, left:'-9999px'}}>{factoryData.bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={factoryData.design} width={factoryData.design.orientation==='portrait'?794:1123} height={factoryData.design.orientation==='portrait'?1123:794} />)}</div>
+        {/* Ghost Area */}
+        <div style={{position:'absolute', top:0, left:'-9999px'}}>{bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />)}</div>
     </div>
   );
 };
 
 // ============================================================================
-// 5. LOJA LAYOUT
+// 3. LOJA LAYOUT
 // ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [downloadingItem, setDownloadingItem] = useState(null);
+  
+  // Factory Local State
+  const [factoryProducts, setFactoryProducts] = useState([]);
+  const [factoryDesign, setFactoryDesign] = useState(DEFAULT_DESIGN);
+  const [localPresets, setLocalPresets] = useState([]);
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '', unit: 'UN', limit: '', date: '', footer: '' });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('content');
+  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
 
-  useEffect(() => { loadFiles(); }, []);
-  const loadFiles = async () => { 
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false});
-        if(data) setFiles(data);
-      } catch(e) { console.error(e); }
-  };
-  const registerDownload = async (fileId, productName = null) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId, product_name: productName || 'PDF Completo' }]); } catch(e){} };
+  useEffect(() => { loadFiles(); try{ const s=localStorage.getItem('poster_presets'); if(s) setLocalPresets(JSON.parse(s));}catch(e){} }, []);
+  
+  const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); } catch(e) {} };
+  
   const handleDownloadSingle = async (product, design, index, fileId) => {
       setDownloadingItem(index); const el = document.getElementById(`modal-ghost-${index}`);
-      if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); const l = document.createElement('a'); l.href = c.toDataURL('image/png'); l.download = `${product.name.substring(0,10)}.png`; l.click(); await registerDownload(fileId, product.name); }
+      if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); const l = document.createElement('a'); l.href = c.toDataURL('image/png'); l.download = `${product.name.substring(0,10)}.png`; l.click(); try{await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId, product_name: product.name }]);}catch(e){} }
       setDownloadingItem(null);
   };
+  
+  // Funções Factory Local
+  const handleLocalExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = data.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setFactoryProducts(m); alert(`${m.length} produtos!`); }; r.readAsBinaryString(f); };
+  const generateLocal = async () => { setIsGenerating(true); const pdf = new jsPDF({ orientation: factoryDesign.orientation, unit: 'mm', format: factoryDesign.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < factoryProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const canvas = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
+  const saveLocalPreset = () => { const n = prompt("Nome:"); if(n) { const np = [...localPresets, {name:n, data:factoryDesign}]; setLocalPresets(np); localStorage.setItem('poster_presets', JSON.stringify(np)); }};
+  const loadLocalPreset = (p) => setFactoryDesign({...DEFAULT_DESIGN, ...p.data});
+  const deleteLocalPreset = (idx) => { if(confirm("Apagar?")) { const np = localPresets.filter((_,i)=>i!==idx); setLocalPresets(np); localStorage.setItem('poster_presets', JSON.stringify(np)); }};
 
   return (
     <div className="flex h-screen bg-slate-200 overflow-hidden">
@@ -303,6 +277,7 @@ const StoreLayout = ({ user, onLogout }) => {
             <button onClick={()=>setView('factory')} className={`p-3 mb-4 rounded-xl transition-all ${view==='factory'?'bg-blue-600 scale-110':'hover:bg-slate-800 text-slate-400'}`}><FileText size={24}/></button>
             <div className="mt-auto"><button onClick={onLogout} className="p-3 hover:bg-red-600 rounded-xl transition-colors text-slate-400"><LogOut size={24}/></button></div>
         </div>
+        
         <div className="flex-1 overflow-hidden relative">
             {view === 'files' && (
                 <div className="p-10 h-full overflow-y-auto">
@@ -313,12 +288,14 @@ const StoreLayout = ({ user, onLogout }) => {
                                 <div className="flex justify-between mb-4"><div className="p-3 bg-red-100 rounded group-hover:bg-red-200"><List className="text-red-600"/></div><span className="text-xs bg-slate-100 px-2 py-1 rounded font-bold">Vence: {formatDateSafe(f.expiry_date)}</span></div>
                                 <h3 className="font-bold text-lg mb-2">{f.title}</h3>
                                 <p className="text-xs text-gray-500 mb-4">Clique para ver os cartazes</p>
-                                <button onClick={(e) => {e.stopPropagation(); window.open(f.file_url); registerDownload(f.id);}} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</button>
+                                <button onClick={(e) => {e.stopPropagation(); window.open(f.file_url);}} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</button>
                             </div>
-                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível no momento.</div>}
+                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível.</div>}
                     </div>
                 </div>
             )}
+
+            {/* Modal de Cartazes Individuais */}
             {selectedCampaign && (
                 <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-10 backdrop-blur-sm">
                     <div className="bg-slate-100 w-full h-full max-w-7xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
@@ -342,14 +319,47 @@ const StoreLayout = ({ user, onLogout }) => {
                     </div>
                 </div>
             )}
-            {view === 'factory' && <PosterFactory mode="local" />}
+
+            {/* Fábrica Local */}
+            {view === 'factory' && (
+                <div className="flex h-full">
+                    {/* Sidebar Factory */}
+                    <div className="w-[400px] bg-white h-full flex flex-col border-r shadow-xl z-20 overflow-y-auto">
+                        <div className="p-4 bg-blue-900 text-white"><h2 className="font-bold uppercase">Fábrica Própria</h2></div>
+                        <div className="flex border-b"><button onClick={()=>setActiveTab('content')} className={`flex-1 py-3 font-bold ${activeTab==='content'?'text-blue-600 border-b-2':''}`}>Dados</button><button onClick={()=>setActiveTab('design')} className={`flex-1 py-3 font-bold ${activeTab==='design'?'text-blue-600 border-b-2':''}`}>Visual</button></div>
+                        <div className="p-4 space-y-4">
+                            {activeTab === 'content' ? (
+                                <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Excel<input type="file" className="hidden" onChange={handleLocalExcel} accept=".xlsx, .csv" /></label>{factoryProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${factoryProducts.length})`}</button>)}</div>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-center mb-2">
+                                        {localPresets.length > 0 && (<div className="relative group"><button className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Bookmark size={12}/> Carregar</button><div className="absolute left-0 top-full bg-white shadow-xl border rounded hidden group-hover:block w-48 z-20">{localPresets.map((p,i)=><div key={i} onClick={()=>loadLocalPreset(p)} className="p-2 hover:bg-slate-100 text-xs flex justify-between cursor-pointer"><span>{p.name}</span><span onClick={(e)=>deleteLocalPreset(i)} className="text-red-500 font-bold">x</span></div>)}</div></div>)}
+                                        <button onClick={saveLocalPreset} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Save size={12}/> Salvar</button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2"><button onClick={()=>setFactoryDesign({...factoryDesign, orientation:'portrait'})} className="p-2 border rounded text-xs">Vertical</button><button onClick={()=>setFactoryDesign({...factoryDesign, orientation:'landscape'})} className="p-2 border rounded text-xs">Horizontal</button></div>
+                                    <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Banners</label><div className="grid grid-cols-2 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>setFactoryDesign(p=>({...p, bannerImage: `/assets/banners/${b.file}`}))} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div></div>
+                                    <div className="bg-slate-50 p-3 rounded border mt-3"><h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Sliders size={12}/> Ajustes Manuais</h3><div className="grid grid-cols-3 gap-3"><div><label className="text-[10px] font-bold">Nome</label><input type="range" min="50" max="150" value={factoryDesign.nameScale} onChange={e=>setFactoryDesign({...factoryDesign, nameScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div><div><label className="text-[10px] font-bold">Preço</label><input type="range" min="50" max="150" value={factoryDesign.priceScale} onChange={e=>setFactoryDesign({...factoryDesign, priceScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div><div><label className="text-[10px] font-bold">Posição</label><input type="range" min="-50" max="50" value={factoryDesign.priceY} onChange={e=>setFactoryDesign({...factoryDesign, priceY: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div></div></div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    {/* Preview Area */}
+                    <div className="flex-1 flex items-center justify-center bg-slate-300 overflow-hidden relative">
+                         <div style={{transform: `scale(${0.3})`, transition: 'transform 0.2s', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'}}>
+                            <Poster product={factoryProducts[0] || product} design={factoryDesign} width={factoryDesign.orientation==='portrait'?794:1123} height={factoryDesign.orientation==='portrait'?1123:794} />
+                         </div>
+                    </div>
+                    {/* Ghost for PDF Generation */}
+                    <div style={{position:'absolute', top:0, left:'-9999px'}}>{factoryProducts.map((p,i)=><Poster key={i} id={`local-ghost-${i}`} product={p} design={factoryDesign} width={factoryDesign.orientation==='portrait'?794:1123} height={factoryDesign.orientation==='portrait'?1123:794} />)}</div>
+                </div>
+            )}
         </div>
     </div>
   );
 };
 
 // ============================================================================
-// 6. LOGIN E APP
+// 4. LOGIN & APP
 // ============================================================================
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false); const [zooming, setZooming] = useState(false);
