@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -17,14 +17,13 @@ const DEFAULT_DESIGN = {
   nameScale: 100, priceScale: 100, priceY: 0
 };
 
-// Formatação Segura
 const formatDateSafe = (dateStr) => {
   if (!dateStr) return 'Data n/a';
   try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
 };
 
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ (V29 ORIGINAL)
+// 1. COMPONENTE DE CARTAZ
 // ============================================================================
 const Poster = ({ product, design, width, height, id }) => {
   if (!product) return null;
@@ -104,7 +103,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY (COMPARTILHADA) - COM ALERTA DE SUCESSO CORRIGIDO
+// 3. FACTORY (COM BOTÃO DE DOWNLOAD ÚNICO)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -114,29 +113,48 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '', unit: 'UN', limit: '', date: '', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
-  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
+  
+  // ==================================================================================
+  // AQUI VOCÊ CONFIGURA SEUS BANNERS E FUNDOS
+  // ==================================================================================
+  const library = { 
+      banners: [ 
+          { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
+          { id: 'b2', file: 'saldao.png', color: '#facc15' },
+          // Adicione os seus aqui assim:
+          // { id: 'b3', file: 'meu-banner.png', color: '#0000ff' },
+      ], 
+      backgrounds: [ 
+          { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, 
+          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } 
+      ] 
+  };
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
 
-  const handleExcel = (e) => { 
-      const f = e.target.files[0]; 
-      if(!f) return; 
-      const r = new FileReader(); 
-      r.onload = (evt) => { 
-          const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
-          const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
-          const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); 
-          setBulkProducts(m); 
-          // --- AQUI ESTÁ A CORREÇÃO: MOSTRA O ALERTA SEMPRE ---
-          alert(`${m.length} produtos carregados com sucesso!`);
-      }; 
-      r.readAsBinaryString(f); 
-  };
-
+  const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
+  
+  // Gerar Lote
   const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
+
+  // Gerar Unitário (NOVA FUNÇÃO)
+  const generateSingle = async () => {
+      setIsGenerating(true);
+      const el = document.getElementById('single-ghost'); 
+      if(el) {
+          const c = await html2canvas(el, { scale: 2, useCORS: true });
+          // Cria um PDF de 1 página
+          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
+          const w = pdf.internal.pageSize.getWidth(); 
+          const h = pdf.internal.pageSize.getHeight();
+          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+          pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`);
+      }
+      setIsGenerating(false);
+  };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-200 overflow-hidden">
@@ -149,11 +167,19 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                         <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}
                         {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold mt-2">{bulkProducts.length} produtos carregados.</p>}
                         </div><hr/>
+                        
                         <div><label className="text-xs font-bold uppercase">Produto (Teste)</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-2 border rounded font-bold h-20"/></div>
                         <div className="grid grid-cols-2 gap-2"><div><label className="text-xs font-bold uppercase">Preço</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-2 border rounded font-bold"/></div><div><label className="text-xs font-bold uppercase">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-2 border rounded">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
                         <div><label className="text-xs font-bold uppercase">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-2 border rounded"/></div>
                         <div><label className="text-xs font-bold uppercase">Rodapé/Data</label><input type="text" value={product.date} onChange={e=>setProduct({...product, date:e.target.value})} className="w-full p-2 border rounded"/></div>
                         <div className="flex items-center gap-2 border p-2 rounded"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})}/><label className="text-xs font-bold uppercase">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full border-b outline-none"/></div>
+                        
+                        {/* BOTÃO DE DOWNLOAD UNITÁRIO - SÓ APARECE NA LOJA */}
+                        {mode === 'local' && (
+                            <button onClick={generateSingle} disabled={isGenerating} className="w-full py-3 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-700 mt-4 flex items-center justify-center gap-2">
+                                {isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> Baixar Este Cartaz (PDF)</>}
+                            </button>
+                        )}
                     </>
                 ) : (
                     <>
@@ -171,7 +197,15 @@ const PosterFactory = ({ mode, onAdminReady }) => {
             </div>
         </div>
         <div className="flex-1 flex items-center justify-center bg-slate-300 overflow-hidden relative"><div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'}}><Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div></div>
-        {mode === 'local' && (<div style={{position: 'absolute', top: 0, left: '-9999px'}}>{bulkProducts.map((p, i) => (<Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />))}</div>)}
+        
+        {/* ÁREA GHOST: AQUI ESTÁ O SEGREDO DO DOWNLOAD */}
+        <div style={{position:'absolute', top:0, left:'-9999px'}}>
+            {/* 1. Ghost para Lista do Excel (Se houver) */}
+            {bulkProducts.map((p, i) => (<Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />))}
+            
+            {/* 2. Ghost para Cartaz Unitário (Sempre presente) */}
+            <Poster id="single-ghost" product={product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />
+        </div>
     </div>
   );
 };
@@ -228,7 +262,10 @@ const AdminDashboard = ({ onLogout }) => {
                     <div className="w-32"><label className="text-xs font-bold text-slate-500">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-2 border rounded"/></div>
                     <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?`${progress}%`:'ENVIAR'}</button>
                 </div>
-                <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
+                <div className="flex-1 overflow-hidden relative">
+                    {/* A Factory é carregada aqui e atualiza o 'factoryData' do Admin */}
+                    <PosterFactory mode="admin" onAdminReady={setFactoryData} />
+                </div>
             </div>
             <div className="w-1/2 h-full bg-slate-100 p-6 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
@@ -237,6 +274,7 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
             </div>
         </div>
+        {/* Ghost do Admin para gerar PDF (usa dados da Factory) */}
         <div style={{position:'absolute', top:0, left:'-9999px'}}>{factoryData.bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={factoryData.design} width={factoryData.design.orientation==='portrait'?794:1123} height={factoryData.design.orientation==='portrait'?1123:794} />)}</div>
     </div>
   );
@@ -248,18 +286,10 @@ const AdminDashboard = ({ onLogout }) => {
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
-  const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [downloadingItem, setDownloadingItem] = useState(null);
 
   useEffect(() => { loadFiles(); }, []);
   const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); } catch(e) {} };
-  const registerDownload = async (fileId, productName = null) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId, product_name: productName || 'PDF Completo' }]); } catch(e){} };
-  
-  const handleDownloadSingle = async (product, design, index, fileId) => {
-      setDownloadingItem(index); const el = document.getElementById(`modal-ghost-${index}`);
-      if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); const l = document.createElement('a'); l.href = c.toDataURL('image/png'); l.download = `${product.name.substring(0,10)}.png`; l.click(); await registerDownload(fileId, product.name); }
-      setDownloadingItem(null);
-  };
+  const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); } catch(e){} };
 
   return (
     <div className="flex h-screen bg-slate-200 overflow-hidden">
@@ -275,37 +305,12 @@ const StoreLayout = ({ user, onLogout }) => {
                     <h2 className="text-3xl font-bold text-slate-800 mb-6 flex gap-3 items-center"><FileText className="text-green-600"/> Encartes da Matriz</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {files.length > 0 ? files.map(f=>(
-                            <div key={f.id} onClick={() => setSelectedCampaign(f)} className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600 hover:shadow-2xl transition-all cursor-pointer group">
+                            <div key={f.id} className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600 hover:shadow-2xl transition-all">
                                 <div className="flex justify-between mb-4"><span className="text-xs bg-slate-100 px-2 py-1 rounded font-bold">Vence: {formatDateSafe(f.expiry_date)}</span></div>
-                                <h3 className="font-bold text-lg mb-2">{f.title}</h3>
-                                <p className="text-xs text-gray-500 mb-4">Clique para ver os cartazes</p>
-                                <button onClick={(e) => {e.stopPropagation(); window.open(f.file_url); registerDownload(f.id);}} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</button>
+                                <h3 className="font-bold text-lg mb-4">{f.title}</h3>
+                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</a>
                             </div>
                         )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível no momento.</div>}
-                    </div>
-                </div>
-            )}
-
-            {selectedCampaign && (
-                <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-10 backdrop-blur-sm">
-                    <div className="bg-slate-100 w-full h-full max-w-7xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                        <div className="bg-white p-4 border-b flex justify-between items-center"><div><h2 className="text-xl font-bold text-slate-800">{selectedCampaign.title}</h2></div><button onClick={()=>setSelectedCampaign(null)} className="p-2 hover:bg-gray-200 rounded-full"><X/></button></div>
-                        <div className="flex-1 overflow-y-auto p-6 bg-slate-200">
-                            {Array.isArray(selectedCampaign.products_json) ? (
-                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                    {selectedCampaign.products_json.map((prod, i) => {
-                                        const d = selectedCampaign.design_json ? { ...DEFAULT_DESIGN, ...selectedCampaign.design_json } : DEFAULT_DESIGN;
-                                        return (
-                                            <div key={i} className="bg-white rounded-lg shadow p-2 flex flex-col items-center">
-                                                <div className="border mb-2 overflow-hidden relative bg-gray-50" style={{width: '100%', aspectRatio: d.orientation === 'portrait' ? '0.7' : '1.4'}}><div style={{transform: `scale(${d.orientation === 'portrait' ? 0.2 : 0.25})`, transformOrigin: 'top left', position: 'absolute'}}><Poster id={`modal-ghost-${i}`} product={prod} design={d} width={d.orientation==='portrait'?794:1123} height={d.orientation==='portrait'?1123:794} /></div></div>
-                                                <p className="text-xs font-bold text-center mb-2 line-clamp-1">{prod.name}</p>
-                                                <button onClick={() => handleDownloadSingle(prod, d, i, selectedCampaign.id)} disabled={downloadingItem === i} className="w-full py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex justify-center items-center gap-1">{downloadingItem === i ? <Loader className="animate-spin" size={12}/> : <><Download size={12}/> Baixar</>}</button>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (<div className="flex flex-col items-center justify-center h-full text-gray-500"><p>Campanha antiga. Apenas PDF disponível.</p></div>)}
-                        </div>
                     </div>
                 </div>
             )}
