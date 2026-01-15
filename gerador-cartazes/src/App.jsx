@@ -7,7 +7,7 @@ import {
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
   Image as ImageIcon, Monitor, Layers, Palette, 
-  CheckCircle, RefreshCcw, X, Sliders, Save, Bookmark, Loader, LayoutTemplate
+  CheckCircle, RefreshCcw, X, Sliders, Save, Bookmark, Loader, LayoutTemplate, AlertTriangle
 } from 'lucide-react';
 
 // === CONFIGURAÇÃO PADRÃO ===
@@ -38,6 +38,7 @@ const Poster = ({ product, design, width, height, id }) => {
   const H_PRECO = H_MIOLO * 0.65;
   const H_LIMITE = H_MIOLO * 0.15;
 
+  // Cálculos de escala
   const scName = (Number(d.nameScale) || 100) / 100;
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const posY = Number(d.priceY) || 0;
@@ -103,7 +104,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY MODERNIZADA (AGORA CORRIGIDA)
+// 3. FACTORY (V34 - OTIMIZADA)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -134,15 +135,61 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
 
-  const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
+  const handleExcel = (e) => { 
+      const f = e.target.files[0]; if(!f) return; 
+      const r = new FileReader(); 
+      r.onload = (evt) => { 
+          const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
+          const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
+          const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); 
+          setBulkProducts(m); 
+          if(mode==='local') alert(`${m.length} produtos carregados!`); 
+      }; 
+      r.readAsBinaryString(f); 
+  };
+
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
-  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
+  
+  // Geração em Lote OTIMIZADA (V34)
+  const generateLocal = async () => { 
+      if (bulkProducts.length === 0) return; 
+      setIsGenerating(true); 
+      const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); 
+      const w = pdf.internal.pageSize.getWidth(); 
+      const h = pdf.internal.pageSize.getHeight(); 
+      
+      for (let i = 0; i < bulkProducts.length; i++) { 
+          const el = document.getElementById(`local-ghost-${i}`); 
+          if(el) { 
+              // Otimização: scale 1.5 e JPEG reduzem drasticamente o tamanho
+              const c = await html2canvas(el, { scale: 1.5, useCORS: true }); 
+              if(i>0) pdf.addPage(); 
+              pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); 
+          } 
+          await new Promise(r => setTimeout(r, 10)); // Pausa menor
+      } 
+      pdf.save('MEUS-CARTAZES.pdf'); 
+      setIsGenerating(false); 
+  };
+
+  // Geração Unitária
+  const generateSingle = async () => {
+      setIsGenerating(true);
+      const el = document.getElementById('single-ghost'); 
+      if(el) {
+          const c = await html2canvas(el, { scale: 2, useCORS: true });
+          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
+          const w = pdf.internal.pageSize.getWidth(); 
+          const h = pdf.internal.pageSize.getHeight();
+          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+          pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`);
+      }
+      setIsGenerating(false);
+  };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
-        {/* SIDEBAR DA FÁBRICA */}
         <div className="w-[400px] bg-white h-full flex flex-col border-r border-slate-200 shadow-xl z-20">
             <div className={`p-6 text-white bg-gradient-to-r ${mode==='admin' ? 'from-slate-900 to-slate-800' : 'from-blue-600 to-blue-800'}`}>
                 <h2 className="font-extrabold uppercase tracking-wider text-sm flex items-center gap-2"><Sliders size={18}/> {mode==='admin'?'Editor Admin':'Fábrica Própria'}</h2>
@@ -186,7 +233,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                                 {isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}
                             </button>
                         )}
-                    </div> // <--- AQUI ESTAVA O ERRO (Corrigido de </> para </div>)
+                    </div>
                 ) : (
                     <div className="space-y-6">
                         <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg border border-purple-100">
@@ -211,7 +258,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
                             <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Posição Vertical</label><span className="text-[10px] font-bold text-blue-600">{design.priceY}px</span></div><input type="range" min="-100" max="100" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
                         </div>
-                    </div> // <--- AQUI TAMBÉM (Corrigido de </> para </div>)
+                    </div>
                 )}
             </div>
         </div>
@@ -227,7 +274,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
 };
 
 // ============================================================================
-// 4. ADMIN DASHBOARD MODERNIZADO
+// 4. ADMIN DASHBOARD MODERNIZADO (V34 - OTIMIZADO)
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
@@ -245,25 +292,65 @@ const AdminDashboard = ({ onLogout }) => {
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
   const send = async () => {
-      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
+      // 1. Verificações iniciais
+      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados! Carregue o Excel e preencha título/data.");
+      
       setProcessing(true); setProgress(0);
+      
       try {
           const { bulkProducts, design } = factoryData;
+          
+          // 2. Gerar PDF OTIMIZADO (JPEG + Scale menor)
           const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
+          
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
-              if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); }
+              if(el) { 
+                  // TRUQUE DE OTIMIZAÇÃO: Scale 1.5 e JPEG Quality 0.8
+                  const c = await html2canvas(el, {scale: 1.5, useCORS:true}); 
+                  if(i>0) pdf.addPage(); 
+                  pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); 
+              }
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
-              await new Promise(r=>setTimeout(r,50));
+              await new Promise(r=>setTimeout(r,10));
           }
+
           const fileName = `${Date.now()}-ENCARTE.pdf`;
+          
+          // 3. Upload do PDF
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, pdf.output('blob'), { contentType: 'application/pdf' });
           if(upErr) throw upErr;
+          
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
-          alert("Enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
-      } catch(e) { alert("Erro: "+e.message); }
+          
+          // 4. Salvar no Banco (Com proteção de tamanho)
+          try {
+              await supabase.from('shared_files').insert([{ 
+                  title, 
+                  expiry_date: expiry, 
+                  file_url: publicUrl, 
+                  products_json: bulkProducts, 
+                  design_json: design 
+              }]);
+              alert("Enviado com sucesso!"); 
+              setTitle(''); setExpiry(''); fetchData();
+          } catch (dbError) {
+              // Se der erro no banco (provavelmente JSON muito grande), tenta salvar SÓ O PDF
+              if (confirm("O arquivo de dados é muito grande para salvar a edição. Deseja salvar APENAS o PDF para download?")) {
+                   await supabase.from('shared_files').insert([{ 
+                      title, 
+                      expiry_date: expiry, 
+                      file_url: publicUrl, 
+                      products_json: [], // Salva vazio para não travar
+                      design_json: design 
+                  }]);
+                  alert("PDF Salvo (Sem edição disponível para este item).");
+                  setTitle(''); setExpiry(''); fetchData();
+              }
+          }
+
+      } catch(e) { alert("Erro fatal: "+e.message); }
       setProcessing(false);
   };
 
@@ -301,7 +388,7 @@ const AdminDashboard = ({ onLogout }) => {
 };
 
 // ============================================================================
-// 5. LOJA LAYOUT MODERNIZADO
+// 5. LOJA LAYOUT
 // ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
