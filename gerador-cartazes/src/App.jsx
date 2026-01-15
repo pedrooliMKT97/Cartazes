@@ -7,14 +7,21 @@ import {
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
   Image as ImageIcon, Monitor, Layers, Palette, 
-  CheckCircle, RefreshCcw, X, Sliders, Save, Bookmark, Loader, LayoutTemplate, AlertTriangle
+  CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, LayoutTemplate, Move, MousePointer2
 } from 'lucide-react';
 
 // === CONFIGURAÇÃO PADRÃO ===
+// Definimos posições iniciais (X, Y) para não começar tudo bagunçado
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
-  nameScale: 100, priceScale: 100, priceY: 0
+  nameScale: 100, priceScale: 100,
+  positions: {
+    name: { x: 0, y: 220 },   // Topo
+    price: { x: 0, y: 450 },  // Meio (baixei um pouco para não bater no nome)
+    limit: { x: 0, y: 900 },  // Bem embaixo
+    footer: { x: 0, y: 1050 } // Rodapé
+  }
 };
 
 const formatDateSafe = (dateStr) => {
@@ -23,32 +30,80 @@ const formatDateSafe = (dateStr) => {
 };
 
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ
+// 1. COMPONENTE DE CARTAZ (COM ARRASTAR E SOLTAR)
 // ============================================================================
-const Poster = ({ product, design, width, height, id }) => {
+const Poster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
   if (!product) return null;
-  const d = { ...DEFAULT_DESIGN, ...design }; 
+  
+  // Garante que existam posições padrão se o design vier vazio
+  const d = { 
+      ...DEFAULT_DESIGN, 
+      ...design, 
+      positions: { ...DEFAULT_DESIGN.positions, ...(design?.positions || {}) } 
+  };
 
   const safePrice = product.price ? String(product.price) : '0,00';
   const priceParts = safePrice.includes(',') ? safePrice.split(',') : [safePrice, '00'];
   
-  const H_BANNER = 220; const H_FOOTER = 60;
-  const H_MIOLO = height - H_BANNER - H_FOOTER;
-  const H_NOME = H_MIOLO * 0.20;
-  const H_PRECO = H_MIOLO * 0.65;
-  const H_LIMITE = H_MIOLO * 0.15;
+  const H_BANNER = 220; 
 
-  // Cálculos de escala
   const scName = (Number(d.nameScale) || 100) / 100;
   const scPrice = (Number(d.priceScale) || 100) / 100;
-  const posY = Number(d.priceY) || 0;
+
+  // --- LÓGICA DE ARRASTAR (DRAG) ---
+  const handleMouseDown = (e, key) => {
+      if (!isEditable) return;
+      e.preventDefault();
+      
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startPos = d.positions[key] || { x: 0, y: 0 };
+
+      const handleMouseMove = (moveEvent) => {
+          // Fator 3.5 compensa o zoom da tela (scale 0.3) para o mouse não ficar lento
+          const scaleFactor = 3.5; 
+          const deltaX = (moveEvent.clientX - startX) * scaleFactor;
+          const deltaY = (moveEvent.clientY - startY) * scaleFactor;
+
+          onUpdatePosition(key, {
+              x: startPos.x + deltaX,
+              y: startPos.y + deltaY
+          });
+      };
+
+      const handleMouseUp = () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+  };
 
   const s = {
-    container: { width: `${width}px`, height: `${height}px`, backgroundImage: d.backgroundImage ? `url(${d.backgroundImage})` : 'none', background: d.backgroundImage ? `url(${d.backgroundImage}) center/cover no-repeat` : d.bgColorFallback, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif' },
+    container: { width: `${width}px`, height: `${height}px`, backgroundImage: d.backgroundImage ? `url(${d.backgroundImage})` : 'none', background: d.backgroundImage ? `url(${d.backgroundImage}) center/cover no-repeat` : d.bgColorFallback, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif', userSelect: 'none' },
     bannerBox: { width: '100%', height: `${H_BANNER}px`, position: 'absolute', top: 0, left: 0, backgroundImage: d.bannerImage ? `url(${d.bannerImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.05)', zIndex: 10 },
-    nameBox: { width: '100%', height: `${H_NOME}px`, position: 'absolute', top: `${H_BANNER}px`, left: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 30px', zIndex: 5 },
-    nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word' },
-    priceBox: { width: '100%', height: `${H_PRECO}px`, position: 'absolute', top: `${H_BANNER + H_NOME + posY}px`, left: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 5 },
+    
+    // Função para gerar estilo dos itens móveis
+    movable: (key) => ({
+        position: 'absolute',
+        left: 0, // Centralizado horizontalmente pelo transform se X for 0, ou deslocado
+        top: 0,
+        transform: `translate(${d.positions[key]?.x || 0}px, ${d.positions[key]?.y || 0}px)`,
+        width: '100%', 
+        display: 'flex', 
+        justifyContent: 'center',
+        cursor: isEditable ? 'move' : 'default',
+        border: isEditable ? '2px dashed #3b82f6' : 'none',
+        backgroundColor: isEditable ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+        zIndex: 20,
+        padding: '5px'
+    }),
+
+    nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none' },
+    
+    // Preço
+    priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     oldPriceWrapper: { position: 'relative', marginBottom: '-10px', zIndex: 6 },
     oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '10px' },
@@ -57,25 +112,40 @@ const Poster = ({ product, design, width, height, id }) => {
     sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
     cents: { fontSize: `${100 * scPrice}px`, fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
     unitBadge: { fontSize: `${30 * scPrice}px`, fontWeight: 'bold', textTransform: 'uppercase', color: '#333', backgroundColor: 'transparent', padding: '0', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center' },
-    limitBox: { width: '100%', height: `${H_LIMITE}px`, position: 'absolute', top: `${H_BANNER + H_NOME + H_PRECO}px`, left: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' },
-    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ddd', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px' },
-    footerBox: { width: '100%', height: `${H_FOOTER}px`, position: 'absolute', bottom: 0, left: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderTop: '1px solid rgba(0,0,0,0.1)', zIndex: 20 },
-    footerText: { fontSize: '18px', fontWeight: 'bold', color: d.nameColor, textTransform: 'uppercase' }
+    
+    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ddd', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgba(255,255,255,0.8)', borderRadius:'8px', pointerEvents: 'none' },
+    footerText: { fontSize: '18px', fontWeight: 'bold', color: d.nameColor, textTransform: 'uppercase', pointerEvents: 'none' }
   };
 
   return (
     <div id={id} style={s.container}>
       <div style={s.bannerBox}>{!d.bannerImage && <div style={{fontSize:'40px', fontWeight:'bold', opacity:0.2, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>BANNER</div>}</div>
-      <div style={s.nameBox}><div style={s.nameText}>{product.name}</div></div>
-      <div style={s.priceBox}>
-        {d.showOldPrice && product.oldPrice && <div style={s.oldPriceWrapper}><span style={s.oldPriceText}>De: R$ {product.oldPrice}</span></div>}
-        <div style={s.mainPriceRow}>
-          <span style={s.currency}>R$</span><span style={s.priceBig}>{priceParts[0]}</span>
-          <div style={s.sideColumn}><span style={s.cents}>,{priceParts[1]}</span><div style={s.unitBadge}>{product.unit}</div></div>
-        </div>
+      
+      {/* AREA 1: NOME */}
+      <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}>
+          <div style={s.nameText}>{product.name}</div>
       </div>
-      <div style={s.limitBox}>{product.limit && <div style={s.limitContent}>Limite: {product.limit}</div>}</div>
-      <div style={s.footerBox}><span style={s.footerText}>{product.date ? product.date : product.footer}</span></div>
+
+      {/* AREA 2: PREÇO */}
+      <div style={s.movable('price')} onMouseDown={(e)=>handleMouseDown(e, 'price')}>
+          <div style={s.priceWrapper}>
+            {d.showOldPrice && product.oldPrice && <div style={s.oldPriceWrapper}><span style={s.oldPriceText}>De: R$ {product.oldPrice}</span></div>}
+            <div style={s.mainPriceRow}>
+                <span style={s.currency}>R$</span><span style={s.priceBig}>{priceParts[0]}</span>
+                <div style={s.sideColumn}><span style={s.cents}>,{priceParts[1]}</span><div style={s.unitBadge}>{product.unit}</div></div>
+            </div>
+          </div>
+      </div>
+
+      {/* AREA 3: LIMITE */}
+      <div style={s.movable('limit')} onMouseDown={(e)=>handleMouseDown(e, 'limit')}>
+          {product.limit && <div style={s.limitContent}>Limite: {product.limit}</div>}
+      </div>
+
+      {/* AREA 4: RODAPÉ */}
+      <div style={s.movable('footer')} onMouseDown={(e)=>handleMouseDown(e, 'footer')}>
+          <span style={s.footerText}>{product.date ? product.date : product.footer}</span>
+      </div>
     </div>
   );
 };
@@ -94,9 +164,9 @@ const usePresets = (setDesign) => {
     const novos = [...presets, { name, data: current }];
     setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos));
   };
-  const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data});
+  const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data}); // Carrega inclusive as posições
   const deletePreset = (idx, e) => {
-    e.stopPropagation(); if(!confirm("Apagar?")) return;
+    e.stopPropagation(); if(!confirm("Tem certeza que deseja apagar este preset?")) return;
     const novos = presets.filter((_, i) => i !== idx);
     setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos));
   };
@@ -104,21 +174,22 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY (V34 - OTIMIZADA)
+// 3. FACTORY (COM CONTROLE DRAG & DROP)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '', unit: 'UN', limit: '', date: '', footer: '' });
+  const [product, setProduct] = useState({ name: 'AMEIXA NACIONAL GRAUDA KG', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'DATA AQUI', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
+  const [editMode, setEditMode] = useState(false); // ATIVA O MODO DE ARRASTAR
+  
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
   const library = { 
       banners: [ 
           { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
-          { id: 'b2', file: 'saldao.png', color: '#facc15' },
           { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' },
           { id: 'b4', file: 'superaçougue.png', color: '#6f3107' },
           { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' },
@@ -135,61 +206,29 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
 
-  const handleExcel = (e) => { 
-      const f = e.target.files[0]; if(!f) return; 
-      const r = new FileReader(); 
-      r.onload = (evt) => { 
-          const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
-          const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
-          const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); 
-          setBulkProducts(m); 
-          if(mode==='local') alert(`${m.length} produtos carregados!`); 
-      }; 
-      r.readAsBinaryString(f); 
-  };
-
+  const handleExcel = (e) => { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
   
-  // Geração em Lote OTIMIZADA (V34)
-  const generateLocal = async () => { 
-      if (bulkProducts.length === 0) return; 
-      setIsGenerating(true); 
-      const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); 
-      const w = pdf.internal.pageSize.getWidth(); 
-      const h = pdf.internal.pageSize.getHeight(); 
-      
-      for (let i = 0; i < bulkProducts.length; i++) { 
-          const el = document.getElementById(`local-ghost-${i}`); 
-          if(el) { 
-              // Otimização: scale 1.5 e JPEG reduzem drasticamente o tamanho
-              const c = await html2canvas(el, { scale: 1.5, useCORS: true }); 
-              if(i>0) pdf.addPage(); 
-              pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); 
-          } 
-          await new Promise(r => setTimeout(r, 10)); // Pausa menor
-      } 
-      pdf.save('MEUS-CARTAZES.pdf'); 
-      setIsGenerating(false); 
+  // ATUALIZA A POSIÇÃO QUANDO ARRASTA
+  const updatePosition = (key, newPos) => {
+      setDesign(prev => ({
+          ...prev,
+          positions: { ...prev.positions, [key]: newPos }
+      }));
   };
 
-  // Geração Unitária
-  const generateSingle = async () => {
-      setIsGenerating(true);
-      const el = document.getElementById('single-ghost'); 
-      if(el) {
-          const c = await html2canvas(el, { scale: 2, useCORS: true });
-          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
-          const w = pdf.internal.pageSize.getWidth(); 
-          const h = pdf.internal.pageSize.getHeight();
-          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-          pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`);
-      }
-      setIsGenerating(false);
+  const resetPositions = () => {
+      if(confirm("Voltar posições para o padrão?")) setDesign(d => ({ ...d, positions: DEFAULT_DESIGN.positions }));
   };
+
+  // Geração de PDF (Otimizada)
+  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 1.5, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 10)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
+  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
+        {/* SIDEBAR DA FÁBRICA */}
         <div className="w-[400px] bg-white h-full flex flex-col border-r border-slate-200 shadow-xl z-20">
             <div className={`p-6 text-white bg-gradient-to-r ${mode==='admin' ? 'from-slate-900 to-slate-800' : 'from-blue-600 to-blue-800'}`}>
                 <h2 className="font-extrabold uppercase tracking-wider text-sm flex items-center gap-2"><Sliders size={18}/> {mode==='admin'?'Editor Admin':'Fábrica Própria'}</h2>
@@ -236,12 +275,41 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg border border-purple-100">
-                             <div className="flex items-center gap-2 text-purple-800 font-bold text-xs"><Bookmark size={14}/> <span>PRESETS</span></div>
-                             <div className="flex gap-2">
-                                {presets.length > 0 && (<div className="relative group"><button className="text-xs bg-white text-purple-700 px-3 py-1.5 rounded shadow font-bold hover:bg-purple-100">Carregar</button><div className="absolute right-0 top-full mt-2 bg-white shadow-xl border rounded-lg hidden group-hover:block w-48 z-20 p-2 space-y-1">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-50 text-xs flex justify-between cursor-pointer rounded"><span>{p.name}</span><span onClick={(e)=>deletePreset(i,e)} className="text-red-500 font-bold px-2 hover:bg-red-50 rounded">×</span></div>)}</div></div>)}
-                                <button onClick={()=>savePreset(design)} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded shadow font-bold hover:bg-purple-700">Salvar</button>
+                        {/* CONTROLE DE PRESETS */}
+                        <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
+                             <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2">
+                                <div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets</div>
+                                <div className="flex gap-2">
+                                    <button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button>
+                                    <button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button>
+                                </div>
                              </div>
+                             {presets.length > 0 ? (
+                                <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">
+                                    {presets.map((p,i)=>(
+                                        <div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group">
+                                            <span className="text-xs font-bold text-slate-700">{p.name}</span>
+                                            <button onClick={(e)=>deletePreset(i,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                             ) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo.</p>}
+                        </div>
+
+                        {/* TOGGLE DE EDIÇÃO MANUAL (DRAG & DROP) */}
+                        <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${editMode ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'}`} onClick={() => setEditMode(!editMode)}>
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                    {editMode ? <Move size={20}/> : <MousePointer2 size={20}/>}
+                                </div>
+                                <div>
+                                    <h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-slate-600'}`}>Mover Itens (Drag & Drop)</h4>
+                                    <p className="text-[10px] text-slate-400">Clique e arraste Nome, Preço e Limite</p>
+                                </div>
+                            </div>
+                            <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                                <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                            </div>
                         </div>
 
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
@@ -253,17 +321,18 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
 
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Ajuste Fino</h3>
+                            <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3>
                             <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
                             <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
-                            <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Posição Vertical</label><span className="text-[10px] font-bold text-blue-600">{design.priceY}px</span></div><input type="range" min="-100" max="100" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div>
                         </div>
                     </div>
                 )}
             </div>
         </div>
         <div className="flex-1 flex items-center justify-center bg-slate-200 overflow-hidden relative">
-            <div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'}}><Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div>
+            <div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'}}>
+                <Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} isEditable={editMode} onUpdatePosition={updatePosition}/>
+            </div>
         </div>
         <div style={{position:'absolute', top:0, left:'-9999px'}}>
             {bulkProducts.map((p, i) => (<Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />))}
@@ -274,7 +343,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
 };
 
 // ============================================================================
-// 4. ADMIN DASHBOARD MODERNIZADO (V34 - OTIMIZADO)
+// 4. ADMIN DASHBOARD MODERNIZADO
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
@@ -292,65 +361,25 @@ const AdminDashboard = ({ onLogout }) => {
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
   const send = async () => {
-      // 1. Verificações iniciais
-      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados! Carregue o Excel e preencha título/data.");
-      
+      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
       setProcessing(true); setProgress(0);
-      
       try {
           const { bulkProducts, design } = factoryData;
-          
-          // 2. Gerar PDF OTIMIZADO (JPEG + Scale menor)
           const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
-          
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
-              if(el) { 
-                  // TRUQUE DE OTIMIZAÇÃO: Scale 1.5 e JPEG Quality 0.8
-                  const c = await html2canvas(el, {scale: 1.5, useCORS:true}); 
-                  if(i>0) pdf.addPage(); 
-                  pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); 
-              }
+              if(el) { const c = await html2canvas(el, {scale: 1.5, useCORS:true}); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); }
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,10));
           }
-
           const fileName = `${Date.now()}-ENCARTE.pdf`;
-          
-          // 3. Upload do PDF
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, pdf.output('blob'), { contentType: 'application/pdf' });
           if(upErr) throw upErr;
-          
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          
-          // 4. Salvar no Banco (Com proteção de tamanho)
-          try {
-              await supabase.from('shared_files').insert([{ 
-                  title, 
-                  expiry_date: expiry, 
-                  file_url: publicUrl, 
-                  products_json: bulkProducts, 
-                  design_json: design 
-              }]);
-              alert("Enviado com sucesso!"); 
-              setTitle(''); setExpiry(''); fetchData();
-          } catch (dbError) {
-              // Se der erro no banco (provavelmente JSON muito grande), tenta salvar SÓ O PDF
-              if (confirm("O arquivo de dados é muito grande para salvar a edição. Deseja salvar APENAS o PDF para download?")) {
-                   await supabase.from('shared_files').insert([{ 
-                      title, 
-                      expiry_date: expiry, 
-                      file_url: publicUrl, 
-                      products_json: [], // Salva vazio para não travar
-                      design_json: design 
-                  }]);
-                  alert("PDF Salvo (Sem edição disponível para este item).");
-                  setTitle(''); setExpiry(''); fetchData();
-              }
-          }
-
-      } catch(e) { alert("Erro fatal: "+e.message); }
+          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
+          alert("Enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
+      } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
 
@@ -400,10 +429,8 @@ const StoreLayout = ({ user, onLogout }) => {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
-        {/* SIDEBAR MODERNA */}
         <div className="w-24 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center py-8 text-white z-50 shadow-2xl">
             <div className="mb-10 p-3 bg-white/10 rounded-2xl backdrop-blur-sm"><ImageIcon className="text-white w-8 h-8"/></div>
-            
             <div className="space-y-6 flex flex-col w-full px-4">
                 <button onClick={()=>setView('files')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='files'?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
                     <LayoutTemplate size={24}/>
@@ -414,10 +441,8 @@ const StoreLayout = ({ user, onLogout }) => {
                     <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Fábrica</span>
                 </button>
             </div>
-
             <div className="mt-auto px-4 w-full"><button onClick={onLogout} className="p-4 w-full flex justify-center hover:bg-red-600/20 text-slate-400 hover:text-red-500 rounded-2xl transition-all"><LogOut size={24}/></button></div>
         </div>
-        
         <div className="flex-1 overflow-hidden relative">
             {view === 'files' && (
                 <div className="p-10 h-full overflow-y-auto">
@@ -425,19 +450,11 @@ const StoreLayout = ({ user, onLogout }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {files.length > 0 ? files.map(f=>(
                             <div key={f.id} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group hover:-translate-y-1">
-                                <div className="flex justify-between mb-6">
-                                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500"><FileText size={20}/></div>
-                                    <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
-                                </div>
+                                <div className="flex justify-between mb-6"><div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500"><FileText size={20}/></div><span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span></div>
                                 <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
                                 <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-4 bg-slate-900 text-white font-bold rounded-xl text-center hover:bg-blue-600 shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 group-hover:scale-105"><Download size={20}/> Baixar PDF Completo</a>
                             </div>
-                        )) : (
-                            <div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400">
-                                <FileText size={48} className="mb-4 opacity-20"/>
-                                <p>Nenhum encarte disponível no momento.</p>
-                            </div>
-                        )}
+                        )) : (<div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte disponível no momento.</p></div>)}
                     </div>
                 </div>
             )}
@@ -448,12 +465,11 @@ const StoreLayout = ({ user, onLogout }) => {
 };
 
 // ============================================================================
-// 6. LOGIN MODERNIZADO
+// 6. LOGIN
 // ============================================================================
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false);
   const handleLogin = async (e) => { e.preventDefault(); setLoading(true); const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if(error) { alert("Erro: "+error.message); setLoading(false); } else { setTimeout(() => onLogin(data.session), 500); } };
-  
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-blue-900 via-slate-900 to-red-900 flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px'}}></div>
