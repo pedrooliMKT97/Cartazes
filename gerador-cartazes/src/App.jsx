@@ -6,46 +6,66 @@ import { supabase } from './supabase';
 import { 
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
-  Image as ImageIcon, Monitor, FolderOpen, Layers, CheckCircle, Loader
+  Image as ImageIcon, Monitor, Layers, Palette, 
+  Eye, CheckCircle, RefreshCcw, X, List, Sliders, MoveVertical, Save, Bookmark, Loader
 } from 'lucide-react';
 
+// === CONFIGURAÇÕES PADRÃO (GLOBAL) ===
+const DEFAULT_DESIGN = {
+  size: 'a4',
+  orientation: 'portrait',
+  bannerImage: null,
+  backgroundImage: null,
+  bgColorFallback: '#ffffff',
+  nameColor: '#000000',
+  priceColor: '#cc0000',
+  showOldPrice: true,
+  nameScale: 100,  // Novo: Tamanho do Nome
+  priceScale: 100, // Novo: Tamanho do Preço
+  priceY: 0        // Novo: Posição Vertical
+};
+
+// Formatação segura de data para não quebrar a tela
+const formatDateSafe = (dateStr) => {
+  if (!dateStr) return 'Data indefinida';
+  try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
+};
+
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ (V15 ORIGINAL - O QUE FUNCIONAVA)
+// 1. COMPONENTE DE CARTAZ (VISUAL FINAL)
 // ============================================================================
 const Poster = ({ product, design, width, height, id }) => {
-  if (!product) return null;
-  
-  // Design padrão fixo (sem sliders para não dar erro)
-  const d = design || {
-    size: 'a4', orientation: 'portrait', 
-    bgColorFallback: '#fff', nameColor: '#000', priceColor: '#cc0000', 
-    showOldPrice: true, fontSize: 100
-  };
+  if (!product) return null; // Segurança
+  const d = { ...DEFAULT_DESIGN, ...design }; // Garante que nunca falte propriedade
 
-  const safePrice = product.price ? String(product.price) : '0,00';
+  const safePrice = product.price || '0,00';
   const priceParts = safePrice.includes(',') ? safePrice.split(',') : [safePrice, '00'];
   
-  const H_BANNER = 220; 
-  const H_FOOTER = 60;
+  const H_BANNER = 220; const H_FOOTER = 60;
   const H_MIOLO = height - H_BANNER - H_FOOTER;
   const H_NOME = H_MIOLO * 0.20;
   const H_PRECO = H_MIOLO * 0.65;
   const H_LIMITE = H_MIOLO * 0.15;
 
+  // Escalas matemáticas
+  const scName = (Number(d.nameScale) || 100) / 100;
+  const scPrice = (Number(d.priceScale) || 100) / 100;
+  const posY = Number(d.priceY) || 0;
+
   const s = {
     container: { width: `${width}px`, height: `${height}px`, backgroundImage: d.backgroundImage ? `url(${d.backgroundImage})` : 'none', background: d.backgroundImage ? `url(${d.backgroundImage}) center/cover no-repeat` : d.bgColorFallback, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif' },
     bannerBox: { width: '100%', height: `${H_BANNER}px`, position: 'absolute', top: 0, left: 0, backgroundImage: d.bannerImage ? `url(${d.bannerImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.05)', zIndex: 10 },
     nameBox: { width: '100%', height: `${H_NOME}px`, position: 'absolute', top: `${H_BANNER}px`, left: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 30px', zIndex: 5 },
-    nameText: { fontSize: `${(d.orientation === 'portrait' ? 60 : 50)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word' },
-    priceBox: { width: '100%', height: `${H_PRECO}px`, position: 'absolute', top: `${H_BANNER + H_NOME}px`, left: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 5 },
+    nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word' },
+    priceBox: { width: '100%', height: `${H_PRECO}px`, position: 'absolute', top: `${H_BANNER + H_NOME + posY}px`, left: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 5 },
     oldPriceWrapper: { position: 'relative', marginBottom: '-10px', zIndex: 6 },
     oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '10px' },
-    currency: { fontSize: '50px', fontWeight: 'bold', marginTop: '55px', marginRight: '10px' },
-    priceBig: { fontSize: d.orientation === 'portrait' ? '300px' : '240px', fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
-    sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: '55px', alignItems: 'flex-start', gap: '15px' },
-    cents: { fontSize: '100px', fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
-    unitBadge: { fontSize: '30px', fontWeight: 'bold', textTransform: 'uppercase', color: '#333', backgroundColor: 'transparent', padding: '0', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center' },
+    currency: { fontSize: `${50 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
+    priceBig: { fontSize: `${(d.orientation === 'portrait' ? 300 : 240) * scPrice}px`, fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
+    sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
+    cents: { fontSize: `${100 * scPrice}px`, fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
+    unitBadge: { fontSize: `${30 * scPrice}px`, fontWeight: 'bold', textTransform: 'uppercase', color: '#333', backgroundColor: 'transparent', padding: '0', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center' },
     limitBox: { width: '100%', height: `${H_LIMITE}px`, position: 'absolute', top: `${H_BANNER + H_NOME + H_PRECO}px`, left: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' },
     limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ddd', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px' },
     footerBox: { width: '100%', height: `${H_FOOTER}px`, position: 'absolute', bottom: 0, left: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderTop: '1px solid rgba(0,0,0,0.1)', zIndex: 20 },
@@ -70,66 +90,33 @@ const Poster = ({ product, design, width, height, id }) => {
 };
 
 // ============================================================================
-// 2. FÁBRICA LOCAL (USADA NA LOJA PARA CRIAR OS SEUS)
+// 2. HOOK PRESETS (PARA SALVAR CONFIGURAÇÕES NO NAVEGADOR)
 // ============================================================================
-const PosterFactory = ({ mode }) => {
-  const [activeTab, setActiveTab] = useState('content');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [bulkProducts, setBulkProducts] = useState([]);
-  const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '', unit: 'UN', limit: '', date: '', footer: '' });
-  const [design, setDesign] = useState({ size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, bgColorFallback: '#fff', nameColor: '#000', priceColor: '#cc0000', showOldPrice: true });
-  
-  const units = ['Un', 'Kg', '100g', 'Pct', 'Pack', 'Cx', 'Lt', 'Garrafa'];
-  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
-
-  useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
-
-  const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); alert(`${m.length} produtos!`); }; r.readAsBinaryString(f); };
-  const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
-  const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
-  
-  const generateLocalBatch = async () => {
-    setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
-    for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); }
-    pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false);
+const usePresets = (setDesign) => {
+  const [presets, setPresets] = useState([]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('poster_presets');
+      if (saved) setPresets(JSON.parse(saved));
+    } catch (e) { localStorage.removeItem('poster_presets'); }
+  }, []);
+  const savePreset = (current) => {
+    const name = prompt("Nome do Ajuste (ex: Oferta Padrão):");
+    if (!name) return;
+    const novos = [...presets, { name, data: current }];
+    setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos));
   };
-
-  return (
-    <div className="flex h-full flex-col md:flex-row bg-slate-200 overflow-hidden">
-        <div className="w-[400px] bg-white h-full flex flex-col border-r shadow-xl z-20 overflow-y-auto">
-            <div className="p-4 bg-blue-900 text-white"><h2 className="font-bold uppercase">Fábrica Própria</h2></div>
-            <div className="flex border-b"><button onClick={()=>setActiveTab('content')} className={`flex-1 py-3 font-bold ${activeTab==='content'?'text-blue-600 border-b-2':''}`}>Dados</button><button onClick={()=>setActiveTab('design')} className={`flex-1 py-3 font-bold ${activeTab==='design'?'text-blue-600 border-b-2':''}`}>Visual</button></div>
-            <div className="p-4 space-y-4">
-                {activeTab === 'content' ? (
-                    <>
-                        <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{bulkProducts.length > 0 && (<button onClick={generateLocalBatch} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}</div><hr/>
-                        <div><label className="text-xs font-bold uppercase">Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-2 border rounded font-bold h-20"/></div>
-                        <div className="grid grid-cols-2 gap-2"><div><label className="text-xs font-bold uppercase">Preço</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-2 border rounded font-bold"/></div><div><label className="text-xs font-bold uppercase">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-2 border rounded">{units.map(u=><option key={u}>{u}</option>)}</select></div></div>
-                        <div><label className="text-xs font-bold uppercase">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-2 border rounded"/></div>
-                        <div><label className="text-xs font-bold uppercase">Rodapé/Data</label><input type="text" value={product.date} onChange={e=>setProduct({...product, date:e.target.value})} className="w-full p-2 border rounded"/></div>
-                        <div className="flex items-center gap-2 border p-2 rounded"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})}/><label className="text-xs font-bold uppercase">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full border-b outline-none"/></div>
-                    </>
-                ) : (
-                    <>
-                        <div className="grid grid-cols-2 gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className="p-2 border rounded text-xs">Vertical</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className="p-2 border rounded text-xs">Horizontal</button></div>
-                        <div><label className="text-xs font-bold uppercase block mb-1">Banners</label><div className="grid grid-cols-2 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div>
-                        <div><label className="text-xs font-bold uppercase block mb-1">Fundos</label><div className="grid grid-cols-3 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div>
-                        <div className="grid grid-cols-2 gap-2"><div><label className="text-xs font-bold uppercase">Texto</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full"/></div><div><label className="text-xs font-bold uppercase">Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full"/></div></div>
-                    </>
-                )}
-            </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center bg-slate-300 overflow-hidden relative">
-            <div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'}}><Poster product={bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div>
-        </div>
-        <div style={{position:'absolute', top:0, left:'-9999px'}}>{bulkProducts.map((p, i) => (<Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />))}</div>
-    </div>
-  );
+  const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data});
+  const deletePreset = (idx, e) => {
+    e.stopPropagation(); if(!confirm("Excluir?")) return;
+    const novos = presets.filter((_, i) => i !== idx);
+    setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos));
+  };
+  return { presets, savePreset, loadPreset, deletePreset };
 };
 
 // ============================================================================
-// 3. ADMIN DASHBOARD (SIMPLIFICADO: APENAS GERA PDF E MANDA O LINK)
+// 3. ADMIN DASHBOARD (COM VISUAL E SLIDERS RESTAURADOS)
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
@@ -138,33 +125,36 @@ const AdminDashboard = ({ onLogout }) => {
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
   const [bulkProducts, setBulkProducts] = useState([]); 
-  const [progress, setProgress] = useState(0);
-
-  // Design Padrão do Admin
-  const adminDesign = { size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, bgColorFallback: '#fff', nameColor: '#000', priceColor: '#cc0000', showOldPrice: true, fontSize: 100 };
+  const [design, setDesign] = useState(DEFAULT_DESIGN);
+  
+  const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
+  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
 
   useEffect(() => { fetchData(); }, []);
-  const fetchData = async () => { const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false }); if(f) setFiles(f); const { data: d } = await supabase.from('downloads').select('*'); if(d) { const c = {}; d.forEach(x => { const n = x.store_email.split('@')[0]; c[n] = (c[n]||0)+1; }); setStats(c); } };
+  const fetchData = async () => { try { const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false }); if(f) setFiles(f); const { data: d } = await supabase.from('downloads').select('*'); if(d) { const c = {}; d.forEach(x => { const n = x.store_email.split('@')[0]; c[n] = (c[n]||0)+1; }); setStats(c); } } catch(e){} };
   
   const handleExcel = (e) => { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = data.map(item => ({ name: item['Produto']||'Item', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||'Oferta da Matriz', footer: 'Imagens meramente ilustrativas' })); setBulkProducts(m); alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
+  const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
+  const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
 
   const send = async () => {
       if(!title || !expiry || bulkProducts.length === 0) return alert("Faltam dados!");
-      setProcessing(true); setProgress(0);
+      setProcessing(true);
       try {
-          const pdf = new jsPDF({unit:'mm', format: 'a4', orientation: 'portrait'});
+          const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { const c = await html2canvas(el, {scale:2, useCORS:true}); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); }
-              setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,50));
           }
           const fileName = `${Date.now()}-ENCARTE.pdf`;
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, pdf.output('blob'), { contentType: 'application/pdf' });
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl }]);
+          
+          // Salva o PDF E as configurações de Design (seguro)
+          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
           alert("Sucesso!"); setTitle(''); setExpiry(''); setBulkProducts([]); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
@@ -175,43 +165,121 @@ const AdminDashboard = ({ onLogout }) => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-100">
-        <div className="bg-slate-900 text-white p-4 flex justify-between shadow sticky top-0 z-50"><h1 className="font-bold flex gap-2 items-center"><Monitor/> ADMIN</h1><button onClick={onLogout} className="text-xs bg-red-600 px-3 py-1 rounded">Sair</button></div>
+        <div className="bg-slate-900 text-white p-4 flex justify-between shadow sticky top-0 z-50"><h1 className="font-bold flex gap-2 items-center"><Monitor/> ADMIN - CENTRAL DE DESIGN</h1><button onClick={onLogout} className="text-xs bg-red-600 px-3 py-1 rounded">Sair</button></div>
         <div className="flex-1 flex overflow-hidden">
-            <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                <div className="p-4 bg-slate-50 border-b flex gap-2 items-end">
-                    <div className="flex-1"><label className="text-xs font-bold text-slate-500">Título</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-2 border rounded"/></div>
-                    <div className="w-32"><label className="text-xs font-bold text-slate-500">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-2 border rounded"/></div>
-                    <button onClick={send} disabled={processing} className="px-6 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?`${progress}%`:'ENVIAR'}</button>
+            {/* Esquerda: Configuração */}
+            <div className="w-1/2 h-full flex flex-col border-r bg-white relative overflow-y-auto">
+                <div className="p-4 bg-white border-b sticky top-0 z-20 shadow-sm">
+                    <h2 className="font-bold text-slate-700 mb-2 flex gap-2 items-center"><FileText/> 1. Campanha</h2>
+                    <div className="flex gap-2 mb-2"><input value={title} onChange={e=>setTitle(e.target.value)} className="flex-1 p-2 border rounded" placeholder="Título"/><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-32 p-2 border rounded"/></div>
+                    <label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow text-center"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
+                    {bulkProducts.length > 0 && <p className="text-center text-xs text-green-700 font-bold mt-1">{bulkProducts.length} itens.</p>}
                 </div>
-                <div className="p-6">
-                    <div className="mb-6 p-4 border rounded bg-blue-50">
-                        <label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow text-center"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
-                        {bulkProducts.length > 0 && <p className="text-center text-xs text-green-700 font-bold mt-2">{bulkProducts.length} produtos carregados.</p>}
+
+                <div className="p-4">
+                    <div className="flex justify-between items-center mb-4"><h2 className="font-bold text-slate-700 flex gap-2 items-center"><Palette/> 2. Personalizar</h2><div className="flex gap-2">{presets.length > 0 && (<div className="relative group"><button className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Bookmark size={12}/> Carregar</button><div className="absolute left-0 top-full bg-white shadow-xl border rounded hidden group-hover:block w-48 z-20">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-100 text-xs flex justify-between cursor-pointer"><span>{p.name}</span><span onClick={(e)=>deletePreset(i,e)} className="text-red-500 font-bold">x</span></div>)}</div></div>)}<button onClick={()=>savePreset(design)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Save size={12}/> Salvar</button></div></div>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                             <div><label className="text-xs font-bold uppercase">Banners</label><div className="flex gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className="h-8 w-8 rounded cursor-pointer" style={{background:b.color}}></div>)}<label className="h-8 px-2 bg-slate-100 border rounded cursor-pointer flex items-center gap-1 text-[10px]"><Upload size={10}/> <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+                             <div><label className="text-xs font-bold uppercase">Fundos</label><div className="flex gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className="h-8 w-8 rounded cursor-pointer" style={{background:b.color}}></div>)}<label className="h-8 px-2 bg-slate-100 border rounded cursor-pointer flex items-center gap-1 text-[10px]"><Upload size={10}/> <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <div><label className="text-xs font-bold uppercase">Texto</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-8 rounded cursor-pointer"/></div>
+                            <div><label className="text-xs font-bold uppercase">Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-8 rounded cursor-pointer"/></div>
+                            <div><label className="text-xs font-bold uppercase">Formato</label><button onClick={()=>setDesign({...design, orientation: design.orientation==='portrait'?'landscape':'portrait'})} className="w-full h-8 border rounded text-xs bg-slate-50 font-bold hover:bg-slate-200">{design.orientation === 'portrait' ? 'Vert' : 'Horiz'}</button></div>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded border">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Sliders size={12}/> Ajustes Manuais</h3>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div><label className="text-[10px] font-bold">Nome</label><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
+                                <div><label className="text-[10px] font-bold">Preço</label><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
+                                <div><label className="text-[10px] font-bold">Posição</label><input type="range" min="-50" max="50" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div>
+                            </div>
+                        </div>
+                        <button onClick={send} disabled={processing} className="w-full py-3 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-gray-400">{processing?`Gerando...`:'GERAR E DISPONIBILIZAR'}</button>
                     </div>
                 </div>
             </div>
+
+            {/* Direita: Preview e Dashboard */}
             <div className="w-1/2 h-full bg-slate-100 p-6 overflow-y-auto">
+                <div className="bg-white p-4 rounded shadow flex flex-col items-center mb-6">
+                    <h3 className="text-sm font-bold text-slate-500 mb-2 flex items-center gap-1"><Eye size={14}/> Preview</h3>
+                    <div className="border border-slate-300 shadow-xl overflow-hidden" style={{ width: '180px', height: design.orientation === 'portrait' ? '254px' : '127px' }}>
+                        <div style={{ transform: `scale(${180 / (design.orientation==='portrait'?794:1123)})`, transformOrigin: 'top left' }}>
+                            <Poster product={bulkProducts[0] || { name: 'PRODUTO EXEMPLO', price: '9,99', oldPrice: '12,99', unit: 'UN', limit: '5' }} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />
+                        </div>
+                    </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded shadow"><div className="flex justify-between items-center mb-2"><h3 className="font-bold text-slate-700">Downloads</h3><button onClick={resetDownloads} className="text-xs text-red-500 underline">Zerar</button></div><div className="space-y-1">{['loja01','loja02','loja03','loja04','loja05'].map(s=><div key={s} className="flex justify-between text-xs p-1 border-b"><span>{s}</span><span className="font-bold">{stats[s]||0}</span></div>)}</div></div>
-                    <div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-slate-700 mb-2">Recentes</h3><div className="space-y-1 max-h-40 overflow-y-auto">{files.map(f=><div key={f.id} className="flex justify-between text-xs p-1 border-b"><span>{f.title} ({f.expiry_date})</span><button onClick={()=>handleDelete(f.id)} className="text-red-500"><Trash2 size={12}/></button></div>)}</div></div>
+                    <div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-slate-700 mb-2">Recentes</h3><div className="space-y-1 max-h-40 overflow-y-auto">{files.map(f=><div key={f.id} className="flex justify-between text-xs p-1 border-b"><span>{f.title} ({formatDateSafe(f.expiry_date)})</span><button onClick={()=>handleDelete(f.id)} className="text-red-500"><Trash2 size={12}/></button></div>)}</div></div>
                 </div>
             </div>
         </div>
-        <div style={{position:'absolute', top:0, left:'-9999px'}}>{bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={adminDesign} width={794} height={1123} />)}</div>
+        <div style={{position:'absolute', top:0, left:'-9999px'}}>{bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />)}</div>
     </div>
   );
 };
 
 // ============================================================================
-// 4. LOJA LAYOUT
+// 4. FACTORY LOCAL (LOJA)
+// ============================================================================
+const PosterFactory = ({ mode }) => {
+  const [activeTab, setActiveTab] = useState('content');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [bulkProducts, setBulkProducts] = useState([]);
+  const [previewScale, setPreviewScale] = useState(0.3);
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '', unit: 'UN', limit: '', date: '', footer: '' });
+  const [design, setDesign] = useState(DEFAULT_DESIGN);
+  const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
+  const library = { banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' } ], backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] };
+
+  useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
+  const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); alert(`${m.length} produtos!`); }; r.readAsBinaryString(f); };
+  const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
+  const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
+  const generateLocal = async () => { setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
+
+  return (
+    <div className="flex h-full flex-col md:flex-row bg-slate-200 overflow-hidden">
+        <div className="w-[400px] bg-white h-full flex flex-col border-r shadow-xl z-20 overflow-y-auto">
+            <div className="p-4 bg-blue-900 text-white"><h2 className="font-bold uppercase">Fábrica Própria</h2></div>
+            <div className="flex border-b"><button onClick={()=>setActiveTab('content')} className={`flex-1 py-3 font-bold ${activeTab==='content'?'text-blue-600 border-b-2':''}`}>Dados</button><button onClick={()=>setActiveTab('design')} className={`flex-1 py-3 font-bold ${activeTab==='design'?'text-blue-600 border-b-2':''}`}>Visual</button></div>
+            <div className="p-4 space-y-4">
+                {activeTab === 'content' ? (
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded text-center"><label className="block w-full py-2 bg-blue-600 text-white rounded cursor-pointer text-xs font-bold uppercase hover:bg-blue-700 shadow mb-2"><Upload className="inline w-3 h-3 mr-1"/> Carregar Excel<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>{bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-2 bg-green-600 text-white rounded text-xs font-bold uppercase hover:bg-green-700 shadow">{isGenerating ? `Gerando...` : `Baixar PDF (${bulkProducts.length})`}</button>)}</div>
+                ) : (
+                    <>
+                        <div className="flex justify-between items-center mb-2">
+                             {presets.length > 0 && (<div className="relative group"><button className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Bookmark size={12}/> Carregar</button><div className="absolute left-0 top-full bg-white shadow-xl border rounded hidden group-hover:block w-48 z-20">{presets.map((p,i)=><div key={i} onClick={()=>loadPreset(p)} className="p-2 hover:bg-slate-100 text-xs flex justify-between cursor-pointer"><span>{p.name}</span><span onClick={(e)=>deletePreset(i,e)} className="text-red-500 font-bold">x</span></div>)}</div></div>)}
+                             <button onClick={()=>savePreset(design)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded font-bold flex items-center gap-1"><Save size={12}/> Salvar</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className="p-2 border rounded text-xs">Vertical</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className="p-2 border rounded text-xs">Horizontal</button></div>
+                        <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Banners</label><div className="grid grid-cols-2 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div>
+                        <div><label className="text-xs font-bold uppercase block mt-2 mb-1">Fundos</label><div className="grid grid-cols-3 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className="h-8 rounded border cursor-pointer" style={{background:b.color}}></div>)}</div><label className="text-xs text-blue-600 cursor-pointer"><Upload className="inline w-3 h-3"/> Upload <input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div>
+                        <div className="grid grid-cols-2 gap-2 mt-2"><div><label className="text-xs font-bold uppercase">Texto</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full"/></div><div><label className="text-xs font-bold uppercase">Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full"/></div></div>
+                        <div className="bg-slate-50 p-3 rounded border mt-3"><h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Sliders size={12}/> Ajustes Manuais</h3><div className="grid grid-cols-3 gap-3"><div><label className="text-[10px] font-bold">Nome</label><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div><div><label className="text-[10px] font-bold">Preço</label><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div><div><label className="text-[10px] font-bold">Posição</label><input type="range" min="-50" max="50" value={design.priceY} onChange={e=>setDesign({...design, priceY: Number(e.target.value)})} className="w-full h-1 bg-gray-300 rounded"/></div></div></div>
+                    </>
+                )}
+            </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center bg-slate-300 overflow-hidden relative"><div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'}}><Poster product={bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} /></div></div>
+        <div style={{position:'absolute', top:0, left:'-9999px'}}>{bulkProducts.map((p,i)=><Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?794:1123} height={design.orientation==='portrait'?1123:794} />)}</div>
+    </div>
+  );
+};
+
+// ============================================================================
+// 5. LOJA LAYOUT
 // ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
 
   useEffect(() => { loadFiles(); }, []);
-  const loadFiles = async () => { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); };
-  const registerDownload = async (fileId) => { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); };
+  const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); } catch(e) {} };
+  const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); } catch(e){} };
 
   return (
     <div className="flex h-screen bg-slate-200 overflow-hidden">
@@ -228,11 +296,11 @@ const StoreLayout = ({ user, onLogout }) => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {files.length > 0 ? files.map(f=>(
                             <div key={f.id} className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600 hover:shadow-2xl transition-all">
-                                <div className="flex justify-between mb-4"><span className="text-xs bg-slate-100 px-2 py-1 rounded font-bold">Vence: {f.expiry_date}</span></div>
+                                <div className="flex justify-between mb-4"><span className="text-xs bg-slate-100 px-2 py-1 rounded font-bold">Vence: {formatDateSafe(f.expiry_date)}</span></div>
                                 <h3 className="font-bold text-lg mb-4">{f.title}</h3>
                                 <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-3 bg-slate-800 text-white font-bold rounded text-center hover:bg-slate-700 shadow flex items-center justify-center gap-2"><Download size={16}/> Baixar PDF</a>
                             </div>
-                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível.</div>}
+                        )) : <div className="col-span-3 text-center text-gray-400 mt-10">Nenhum encarte disponível no momento.</div>}
                     </div>
                 </div>
             )}
@@ -243,7 +311,7 @@ const StoreLayout = ({ user, onLogout }) => {
 };
 
 // ============================================================================
-// 5. LOGIN & APP
+// 6. LOGIN & APP
 // ============================================================================
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false); const [zooming, setZooming] = useState(false);
