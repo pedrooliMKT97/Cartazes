@@ -111,14 +111,48 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
 };
 
 // ============================================================================
-// 2. HOOK PRESETS
+// 2. HOOK PRESETS (SINCRONIZADO NA NUVEM / SUPABASE)
 // ============================================================================
 const usePresets = (setDesign) => {
   const [presets, setPresets] = useState([]);
-  useEffect(() => { try { const saved = localStorage.getItem('poster_presets'); if (saved) setPresets(JSON.parse(saved)); } catch (e) {} }, []);
-  const savePreset = (current) => { const name = prompt("Nome do Ajuste (ex: Padrão Oferta):"); if (!name) return; const novos = [...presets, { name, data: current }]; setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos)); };
+
+  // Carrega presets do banco ao iniciar
+  useEffect(() => {
+    fetchPresets();
+  }, []);
+
+  const fetchPresets = async () => {
+    try {
+        const { data, error } = await supabase.from('presets').select('*').order('created_at', { ascending: false });
+        if (data) setPresets(data);
+    } catch(e) { console.error("Erro ao buscar presets:", e); }
+  };
+
+  const savePreset = async (currentDesign) => {
+    const name = prompt("Nome do Ajuste (ex: Padrão Oferta):");
+    if (!name) return;
+    
+    // Salva no banco de dados (nuvem)
+    const { error } = await supabase.from('presets').insert([{ name, data: currentDesign }]);
+    
+    if (error) {
+        alert("Erro ao salvar: " + error.message);
+    } else {
+        alert("Preset salvo na nuvem!");
+        fetchPresets(); // Atualiza a lista na hora
+    }
+  };
+
   const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data}); 
-  const deletePreset = (idx, e) => { e.stopPropagation(); if(!confirm("Tem certeza que deseja apagar este preset?")) return; const novos = presets.filter((_, i) => i !== idx); setPresets(novos); localStorage.setItem('poster_presets', JSON.stringify(novos)); };
+
+  const deletePreset = async (id, e) => {
+    e.stopPropagation(); 
+    if(!confirm("Tem certeza que deseja EXCLUIR este preset da nuvem?")) return;
+    
+    const { error } = await supabase.from('presets').delete().eq('id', id);
+    if (!error) fetchPresets(); // Atualiza a lista
+  };
+
   return { presets, savePreset, loadPreset, deletePreset };
 };
 
@@ -136,8 +170,20 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
   const library = { 
-      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } ], 
-      backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] 
+      banners: [ 
+          { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
+          { id: 'b2', file: 'saldao.png', color: '#facc15' }, 
+          { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, 
+          { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, 
+          { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, 
+          { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, 
+          { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, 
+          { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } 
+      ], 
+      backgrounds: [ 
+          { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, 
+          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } 
+      ] 
   };
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
@@ -181,15 +227,18 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                 ) : (
                     <div className="space-y-6">
                         <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
-                             <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets</div><div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div></div>
-                             {presets.length > 0 ? (<div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">{presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span><button onClick={(e)=>deletePreset(i,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button></div>))}</div>) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo.</p>}
+                             <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div><div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div></div>
+                             {presets.length > 0 ? (<div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">{presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span><button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button></div>))}</div>) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
                         </div>
                         <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${editMode ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'}`} onClick={() => setEditMode(!editMode)}>
                             <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{editMode ? <Move size={20}/> : <MousePointer2 size={20}/>}</div><div><h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-slate-600'}`}>Mover Itens (Drag & Drop)</h4><p className="text-[10px] text-slate-400">Clique e arraste Nome, Preço e Limite</p></div></div>
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'cover'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+                        
+                        {/* AQUI ESTÁ A CORREÇÃO DOS BANNERS CORTADOS (backgroundSize: '100% 100%') */}
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+                        
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Fundos</label><div className="grid grid-cols-4 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.backgroundImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4"><h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
@@ -307,7 +356,7 @@ const StoreLayout = ({ user, onLogout }) => {
 };
 
 // ============================================================================
-// 6. LOGIN & APP (CORREÇÃO DE LOGOUT)
+// 6. LOGIN & APP
 // ============================================================================
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false);
@@ -318,13 +367,7 @@ const LoginScreen = ({ onLogin }) => {
 const App = () => {
   const [session, setSession] = useState(null);
   useEffect(() => { supabase.auth.getSession().then(({ data: { session } }) => setSession(session)); const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session)); return () => subscription.unsubscribe(); }, []);
-  
-  // --- AQUI ESTÁ A CORREÇÃO DO LOGOUT ---
-  const handleLogout = async () => {
-      await supabase.auth.signOut();
-      setSession(null); // Força a tela de login a aparecer
-  };
-
+  const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); };
   if (!session) return <LoginScreen onLogin={(s) => setSession(s)} />;
   if (session.user.email.includes('admin')) return <AdminDashboard onLogout={handleLogout} />;
   return <StoreLayout user={session.user} onLogout={handleLogout} />;
