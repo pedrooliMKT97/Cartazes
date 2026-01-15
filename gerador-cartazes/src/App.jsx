@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -7,7 +7,7 @@ import {
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
   Image as ImageIcon, Monitor, Layers, Palette, 
-  Eye, CheckCircle, RefreshCcw, X, List, Sliders, MoveVertical, Save, Bookmark, Loader, LayoutTemplate
+  CheckCircle, RefreshCcw, X, Sliders, Save, Bookmark, Loader, LayoutTemplate
 } from 'lucide-react';
 
 // === CONFIGURAÇÃO PADRÃO ===
@@ -23,7 +23,7 @@ const formatDateSafe = (dateStr) => {
 };
 
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ (VISUAL MANTIDO)
+// 1. COMPONENTE DE CARTAZ
 // ============================================================================
 const Poster = ({ product, design, width, height, id }) => {
   if (!product) return null;
@@ -103,7 +103,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY MODERNIZADA
+// 3. FACTORY (COM BOTÃO DE DOWNLOAD ÚNICO)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -114,6 +114,9 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
+  // ==================================================================================
+  // AQUI VOCÊ CONFIGURA SEUS BANNERS E FUNDOS
+  // ==================================================================================
   const library = { 
       banners: [ 
           { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
@@ -137,8 +140,24 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleExcel = (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
+  
+  // Gerar Lote
   const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 50)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
+
+  // Gerar Unitário (NOVA FUNÇÃO)
+  const generateSingle = async () => {
+      setIsGenerating(true);
+      const el = document.getElementById('single-ghost'); 
+      if(el) {
+          const c = await html2canvas(el, { scale: 2, useCORS: true });
+          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
+          const w = pdf.internal.pageSize.getWidth(); 
+          const h = pdf.internal.pageSize.getHeight();
+          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+          pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`);
+      }
+      setIsGenerating(false);
+  };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
@@ -369,29 +388,15 @@ const LoginScreen = ({ onLogin }) => {
   
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-blue-900 via-slate-900 to-red-900 flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden">
-        {/* Efeitos de Fundo */}
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px'}}></div>
-        
         <div className="w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/20 p-10 rounded-3xl shadow-2xl flex flex-col items-center relative z-10">
-            {/* LOGO AQUI */}
-            <img src="/assets/logo-full.png" alt="Cartaz No Ponto" className="w-48 mb-8 drop-shadow-xl animate-fade-in-up"/>
-            
+            <img src="/assets/logo-full.png" alt="Cartaz No Ponto" className="w-48 mb-8 drop-shadow-xl"/>
             <h2 className="text-2xl font-bold text-white mb-2">Bem-vindo</h2>
             <p className="text-blue-200 text-sm mb-8">Acesse sua central de criação</p>
-            
             <form onSubmit={handleLogin} className="w-full space-y-5">
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-blue-100 uppercase ml-1">Email</label>
-                    <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="seu@email.com"/>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-blue-100 uppercase ml-1">Senha</label>
-                    <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="••••••••"/>
-                </div>
-                
-                <button disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-red-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-1 transition-all disabled:opacity-50 mt-4">
-                    {loading ? <Loader className="animate-spin mx-auto"/> : 'ENTRAR NO SISTEMA'}
-                </button>
+                <div className="space-y-1"><label className="text-xs font-bold text-blue-100 uppercase ml-1">Email</label><input value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="seu@email.com"/></div>
+                <div className="space-y-1"><label className="text-xs font-bold text-blue-100 uppercase ml-1">Senha</label><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="••••••••"/></div>
+                <button disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-red-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-1 transition-all disabled:opacity-50 mt-4">{loading ? <Loader className="animate-spin mx-auto"/> : 'ENTRAR NO SISTEMA'}</button>
             </form>
         </div>
         <p className="mt-8 text-white/20 text-xs">© 2026 Cartaz No Ponto. Todos os direitos reservados.</p>
