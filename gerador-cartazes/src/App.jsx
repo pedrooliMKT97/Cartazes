@@ -10,7 +10,7 @@ import {
   CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, LayoutTemplate, Move, MousePointer2
 } from 'lucide-react';
 
-// === CONFIGURAÇÃO PADRÃO ===
+// === CONFIGURAÇÃO PADRÃO (V39 - Rodapé mais alto) ===
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
@@ -19,7 +19,7 @@ const DEFAULT_DESIGN = {
     name: { x: 0, y: 220 },
     price: { x: 0, y: 450 },
     limit: { x: 0, y: 900 },
-    footer: { x: 0, y: 1050 }
+    footer: { x: 0, y: 1000 }
   }
 };
 
@@ -29,7 +29,7 @@ const formatDateSafe = (dateStr) => {
 };
 
 // ============================================================================
-// 1. COMPONENTE DE CARTAZ (COM ARRASTAR E SOLTAR)
+// 1. COMPONENTE DE CARTAZ
 // ============================================================================
 const Poster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
   if (!product) return null;
@@ -111,48 +111,15 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
 };
 
 // ============================================================================
-// 2. HOOK PRESETS (SINCRONIZADO NA NUVEM / SUPABASE)
+// 2. HOOK PRESETS (NUVEM)
 // ============================================================================
 const usePresets = (setDesign) => {
   const [presets, setPresets] = useState([]);
-
-  // Carrega presets do banco ao iniciar
-  useEffect(() => {
-    fetchPresets();
-  }, []);
-
-  const fetchPresets = async () => {
-    try {
-        const { data, error } = await supabase.from('presets').select('*').order('created_at', { ascending: false });
-        if (data) setPresets(data);
-    } catch(e) { console.error("Erro ao buscar presets:", e); }
-  };
-
-  const savePreset = async (currentDesign) => {
-    const name = prompt("Nome do Ajuste (ex: Padrão Oferta):");
-    if (!name) return;
-    
-    // Salva no banco de dados (nuvem)
-    const { error } = await supabase.from('presets').insert([{ name, data: currentDesign }]);
-    
-    if (error) {
-        alert("Erro ao salvar: " + error.message);
-    } else {
-        alert("Preset salvo na nuvem!");
-        fetchPresets(); // Atualiza a lista na hora
-    }
-  };
-
+  useEffect(() => { fetchPresets(); }, []);
+  const fetchPresets = async () => { try { const { data } = await supabase.from('presets').select('*').order('created_at', { ascending: false }); if (data) setPresets(data); } catch(e){} };
+  const savePreset = async (currentDesign) => { const name = prompt("Nome do Ajuste:"); if (!name) return; const { error } = await supabase.from('presets').insert([{ name, data: currentDesign }]); if (!error) { alert("Salvo na nuvem!"); fetchPresets(); } };
   const loadPreset = (p) => setDesign({...DEFAULT_DESIGN, ...p.data}); 
-
-  const deletePreset = async (id, e) => {
-    e.stopPropagation(); 
-    if(!confirm("Tem certeza que deseja EXCLUIR este preset da nuvem?")) return;
-    
-    const { error } = await supabase.from('presets').delete().eq('id', id);
-    if (!error) fetchPresets(); // Atualiza a lista
-  };
-
+  const deletePreset = async (id, e) => { e.stopPropagation(); if(!confirm("Apagar da nuvem?")) return; const { error } = await supabase.from('presets').delete().eq('id', id); if (!error) fetchPresets(); };
   return { presets, savePreset, loadPreset, deletePreset };
 };
 
@@ -170,20 +137,8 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
   const library = { 
-      banners: [ 
-          { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
-          { id: 'b2', file: 'saldao.png', color: '#facc15' }, 
-          { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, 
-          { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, 
-          { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, 
-          { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, 
-          { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, 
-          { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } 
-      ], 
-      backgrounds: [ 
-          { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, 
-          { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } 
-      ] 
+      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } ], 
+      backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] 
   };
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
@@ -195,8 +150,19 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
   const resetPositions = () => { if(confirm("Voltar posições para o padrão?")) setDesign(d => ({ ...d, positions: DEFAULT_DESIGN.positions })); };
 
-  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 1.5, useCORS: true }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 10)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
+  // --- NOVA FUNÇÃO: Atualiza a data em TODOS os produtos (Lote e Unitário) ---
+  const handleDateChange = (newDate) => {
+      // 1. Atualiza o produto unitário (tela)
+      setProduct(prev => ({ ...prev, date: newDate }));
+      
+      // 2. Se tiver lista carregada, atualiza todos eles também
+      if (bulkProducts.length > 0) {
+          setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate })));
+      }
+  };
+
+  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 10)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
+  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true, scrollY: 0 }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
@@ -220,7 +186,14 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                         <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24"/></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
-                        <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>setProduct({...product, date:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div></div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
+                            
+                            {/* AQUI ESTÁ A CORREÇÃO: O onChange agora chama handleDateChange */}
+                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>handleDateChange(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
+                        </div>
+
                         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})} className="w-5 h-5 text-blue-600 rounded"/><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase block">Mostrar Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" placeholder="Ex: 10,99"/></div></div>
                         {mode === 'local' && (<button onClick={generateSingle} disabled={isGenerating} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mt-4">{isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}</button>)}
                     </div>
@@ -235,10 +208,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
-                        
-                        {/* AQUI ESTÁ A CORREÇÃO DOS BANNERS CORTADOS (backgroundSize: '100% 100%') */}
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
-                        
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Fundos</label><div className="grid grid-cols-4 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.backgroundImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4"><h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
@@ -356,7 +326,7 @@ const StoreLayout = ({ user, onLogout }) => {
 };
 
 // ============================================================================
-// 6. LOGIN & APP
+// 6. LOGIN & APP (CORREÇÃO DE LOGOUT)
 // ============================================================================
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false);
