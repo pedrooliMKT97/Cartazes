@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import JSZip from 'jszip'; // NOVO: Para criar o ZIP
-import { saveAs } from 'file-saver'; // NOVO: Para baixar o ZIP
+import JSZip from 'jszip'; // BIBLIOTECA DE ZIP
+import { saveAs } from 'file-saver'; // BIBLIOTECA DE DOWNLOAD
 import { supabase } from './supabase';
 import { 
   User, LogOut, Upload, FileText, 
@@ -30,7 +30,7 @@ const formatDateSafe = (dateStr) => {
   try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
 };
 
-// Função para limpar nome de arquivo (remove / \ : * ? " < > |)
+// Função para limpar caracteres proibidos em nomes de arquivo
 const cleanFileName = (name) => {
   if (!name) return 'cartaz';
   return name.replace(/[^a-z0-9ãõáéíóúç -]/gi, ' ').trim().substring(0, 50) || 'cartaz';
@@ -132,7 +132,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY (ZIP + NAMED FILES)
+// 3. FACTORY
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -164,48 +164,31 @@ const PosterFactory = ({ mode, onAdminReady }) => {
       if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate })));
   };
 
-  // --- NOVA GERAÇÃO EM ZIP (V41) ---
+  // Gerar ZIP Local
   const generateLocalZip = async () => {
       if (bulkProducts.length === 0) return;
       setIsGenerating(true);
-      
       const zip = new JSZip();
-      
       try {
           for (let i = 0; i < bulkProducts.length; i++) {
               const p = bulkProducts[i];
               const el = document.getElementById(`local-ghost-${i}`);
               if (el) {
-                  // Gera o canvas
                   const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 });
-                  
-                  // Cria um PDF único para este produto
                   const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
-                  const w = pdf.internal.pageSize.getWidth();
-                  const h = pdf.internal.pageSize.getHeight();
-                  
+                  const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h);
-                  
-                  // Adiciona ao ZIP com o nome do produto
-                  const pdfBlob = pdf.output('blob');
-                  const fileName = `${cleanFileName(p.name)}.pdf`;
-                  zip.file(fileName, pdfBlob);
+                  zip.file(`${cleanFileName(p.name)}.pdf`, pdf.output('blob'));
               }
               await new Promise(r => setTimeout(r, 10));
           }
-          
-          // Gera o arquivo ZIP final e baixa
           const content = await zip.generateAsync({ type: "blob" });
           saveAs(content, "CARTAZES-PRONTOS.zip");
-          
-      } catch (error) {
-          alert("Erro ao gerar ZIP: " + error.message);
-      }
-      
+      } catch (error) { alert("Erro: " + error.message); }
       setIsGenerating(false);
   };
 
-  // Gerar Unitário com Nome Certo
+  // Gerar Unitário
   const generateSingle = async () => { 
       setIsGenerating(true); 
       const el = document.getElementById('single-ghost'); 
@@ -214,7 +197,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); 
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); 
           pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); 
-          // Nome do arquivo agora é o nome do produto limpo
           pdf.save(`${cleanFileName(product.name)}.pdf`); 
       } 
       setIsGenerating(false); 
@@ -298,25 +280,49 @@ const AdminDashboard = ({ onLogout }) => {
   const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
+  // --- NOVA FUNÇÃO "PUBLICAR" QUE GERA ZIP NO ADMIN ---
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
       setProcessing(true); setProgress(0);
+      
+      const zip = new JSZip(); // Cria o pacote ZIP
+
       try {
           const { bulkProducts, design } = factoryData;
-          const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
-          const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
+          
+          // Loop para criar cada PDF individual
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
-              if(el) { const c = await html2canvas(el, {scale: 1.5, useCORS:true}); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); }
+              if(el) { 
+                  const c = await html2canvas(el, {scale: 1.5, useCORS:true, scrollY: 0}); 
+                  
+                  const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
+                  const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
+                  
+                  pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h);
+                  
+                  // Adiciona o PDF ao ZIP com o nome do produto
+                  const fileName = `${cleanFileName(bulkProducts[i].name)}.pdf`;
+                  zip.file(fileName, pdf.output('blob'));
+              }
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,10));
           }
-          const fileName = `${Date.now()}-ENCARTE.pdf`;
-          const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, pdf.output('blob'), { contentType: 'application/pdf' });
+
+          // Gera o arquivo ZIP final
+          const zipContent = await zip.generateAsync({type:"blob"});
+          const fileName = `${Date.now()}-CARTAZES.zip`; // Nome do arquivo na nuvem
+
+          // Upload do ZIP para o Supabase
+          const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
+          
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
+          
+          // Salva no banco de dados (agora é um link para o ZIP)
           await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
-          alert("Enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
+          
+          alert("Pacote ZIP enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
@@ -326,7 +332,7 @@ const AdminDashboard = ({ onLogout }) => {
         <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50"><h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Monitor className="text-blue-400"/> PAINEL ADMIN</h1><button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button></div>
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30"><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/></div><div className="w-36"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/></div><button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all flex items-center gap-2">{processing?`Enviando ${progress}%`:<><Upload size={18}/> PUBLICAR</>}</button></div>
+                <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30"><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/></div><div className="w-36"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/></div><button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all flex items-center gap-2">{processing?`Gerando ZIP ${progress}%`:<><Upload size={18}/> PUBLICAR (ZIP)</>}</button></div>
                 <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
             </div>
             <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
@@ -371,7 +377,7 @@ const StoreLayout = ({ user, onLogout }) => {
                             <div key={f.id} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group hover:-translate-y-1">
                                 <div className="flex justify-between mb-6"><div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500"><FileText size={20}/></div><span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span></div>
                                 <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
-                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-4 bg-slate-900 text-white font-bold rounded-xl text-center hover:bg-blue-600 shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 group-hover:scale-105"><Download size={20}/> Baixar PDF Completo</a>
+                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-4 bg-slate-900 text-white font-bold rounded-xl text-center hover:bg-blue-600 shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 group-hover:scale-105"><Download size={20}/> Baixar PACOTE (ZIP)</a>
                             </div>
                         )) : (<div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte disponível no momento.</p></div>)}
                     </div>
