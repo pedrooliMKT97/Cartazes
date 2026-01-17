@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip'; // NOVO: Para criar o ZIP
+import { saveAs } from 'file-saver'; // NOVO: Para baixar o ZIP
 import { supabase } from './supabase';
 import { 
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
   Image as ImageIcon, Monitor, Layers, Palette, 
-  CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, LayoutTemplate, Move, MousePointer2
+  CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, LayoutTemplate, Move, MousePointer2, Package
 } from 'lucide-react';
 
-// === CONFIGURAÇÃO PADRÃO (V39 - Rodapé mais alto) ===
+// === CONFIGURAÇÃO PADRÃO ===
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
@@ -26,6 +28,12 @@ const DEFAULT_DESIGN = {
 const formatDateSafe = (dateStr) => {
   if (!dateStr) return 'Data n/a';
   try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
+};
+
+// Função para limpar nome de arquivo (remove / \ : * ? " < > |)
+const cleanFileName = (name) => {
+  if (!name) return 'cartaz';
+  return name.replace(/[^a-z0-9ãõáéíóúç -]/gi, ' ').trim().substring(0, 50) || 'cartaz';
 };
 
 // ============================================================================
@@ -124,7 +132,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY
+// 3. FACTORY (ZIP + NAMED FILES)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -150,19 +158,67 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
   const resetPositions = () => { if(confirm("Voltar posições para o padrão?")) setDesign(d => ({ ...d, positions: DEFAULT_DESIGN.positions })); };
 
-  // --- NOVA FUNÇÃO: Atualiza a data em TODOS os produtos (Lote e Unitário) ---
+  // Atualiza data em todos
   const handleDateChange = (newDate) => {
-      // 1. Atualiza o produto unitário (tela)
       setProduct(prev => ({ ...prev, date: newDate }));
-      
-      // 2. Se tiver lista carregada, atualiza todos eles também
-      if (bulkProducts.length > 0) {
-          setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate })));
-      }
+      if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate })));
   };
 
-  const generateLocal = async () => { if (bulkProducts.length === 0) return; setIsGenerating(true); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); for (let i = 0; i < bulkProducts.length; i++) { const el = document.getElementById(`local-ghost-${i}`); if(el) { const c = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 }); if(i>0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h); } await new Promise(r => setTimeout(r, 10)); } pdf.save('MEUS-CARTAZES.pdf'); setIsGenerating(false); };
-  const generateSingle = async () => { setIsGenerating(true); const el = document.getElementById('single-ghost'); if(el) { const c = await html2canvas(el, { scale: 2, useCORS: true, scrollY: 0 }); const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); pdf.save(`CARTAZ-${product.name.substring(0,10)}.pdf`); } setIsGenerating(false); };
+  // --- NOVA GERAÇÃO EM ZIP (V41) ---
+  const generateLocalZip = async () => {
+      if (bulkProducts.length === 0) return;
+      setIsGenerating(true);
+      
+      const zip = new JSZip();
+      
+      try {
+          for (let i = 0; i < bulkProducts.length; i++) {
+              const p = bulkProducts[i];
+              const el = document.getElementById(`local-ghost-${i}`);
+              if (el) {
+                  // Gera o canvas
+                  const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 });
+                  
+                  // Cria um PDF único para este produto
+                  const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
+                  const w = pdf.internal.pageSize.getWidth();
+                  const h = pdf.internal.pageSize.getHeight();
+                  
+                  pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h);
+                  
+                  // Adiciona ao ZIP com o nome do produto
+                  const pdfBlob = pdf.output('blob');
+                  const fileName = `${cleanFileName(p.name)}.pdf`;
+                  zip.file(fileName, pdfBlob);
+              }
+              await new Promise(r => setTimeout(r, 10));
+          }
+          
+          // Gera o arquivo ZIP final e baixa
+          const content = await zip.generateAsync({ type: "blob" });
+          saveAs(content, "CARTAZES-PRONTOS.zip");
+          
+      } catch (error) {
+          alert("Erro ao gerar ZIP: " + error.message);
+      }
+      
+      setIsGenerating(false);
+  };
+
+  // Gerar Unitário com Nome Certo
+  const generateSingle = async () => { 
+      setIsGenerating(true); 
+      const el = document.getElementById('single-ghost'); 
+      if(el) { 
+          const c = await html2canvas(el, { scale: 2, useCORS: true, scrollY: 0 }); 
+          const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); 
+          const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); 
+          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); 
+          // Nome do arquivo agora é o nome do produto limpo
+          pdf.save(`${cleanFileName(product.name)}.pdf`); 
+      } 
+      setIsGenerating(false); 
+  };
 
   return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
@@ -180,20 +236,22 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                         <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center">
                             <h3 className="text-blue-900 font-bold text-sm mb-3">GERAÇÃO EM MASSA</h3>
                             <label className="block w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-lg cursor-pointer text-xs font-bold uppercase hover:bg-blue-50 hover:border-blue-500 transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
-                            {mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocal} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all">{isGenerating ? `Gerando...` : `Baixar Todos (${bulkProducts.length})`}</button>)}
+                            {/* BOTÃO MUDADO PARA ZIP */}
+                            {mode === 'local' && bulkProducts.length > 0 && (
+                                <button onClick={generateLocalZip} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                                    {isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>}
+                                    {isGenerating ? `Gerando ZIP...` : `Baixar ZIP (${bulkProducts.length})`}
+                                </button>
+                            )}
                             {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold flex items-center justify-center gap-1"><CheckCircle size={12}/> {bulkProducts.length} produtos carregados</p>}
                         </div>
                         <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24"/></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
-                        
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
-                            
-                            {/* AQUI ESTÁ A CORREÇÃO: O onChange agora chama handleDateChange */}
                             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>handleDateChange(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
                         </div>
-
                         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})} className="w-5 h-5 text-blue-600 rounded"/><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase block">Mostrar Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" placeholder="Ex: 10,99"/></div></div>
                         {mode === 'local' && (<button onClick={generateSingle} disabled={isGenerating} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mt-4">{isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}</button>)}
                     </div>
