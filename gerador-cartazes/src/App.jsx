@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import JSZip from 'jszip'; // BIBLIOTECA DE ZIP
-import { saveAs } from 'file-saver'; // BIBLIOTECA DE DOWNLOAD
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { supabase } from './supabase';
 import { 
   User, LogOut, Upload, FileText, 
@@ -12,17 +12,26 @@ import {
   CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, LayoutTemplate, Move, MousePointer2, Package
 } from 'lucide-react';
 
-// === CONFIGURAÇÃO PADRÃO ===
-const DEFAULT_DESIGN = {
-  size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
-  bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
-  nameScale: 100, priceScale: 100,
-  positions: {
+// === POSIÇÕES PADRÃO PARA CADA FORMATO ===
+const PORTRAIT_POS = {
     name: { x: 0, y: 220 },
     price: { x: 0, y: 450 },
     limit: { x: 0, y: 900 },
     footer: { x: 0, y: 1000 }
-  }
+};
+
+const LANDSCAPE_POS = {
+    name: { x: 0, y: 220 },
+    price: { x: 0, y: 350 }, // Subiu
+    limit: { x: 0, y: 620 }, // Subiu muito
+    footer: { x: 0, y: 700 } // Subiu para caber na folha (altura 794)
+};
+
+const DEFAULT_DESIGN = {
+  size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
+  bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
+  nameScale: 100, priceScale: 100,
+  positions: PORTRAIT_POS // Começa com o padrão vertical
 };
 
 const formatDateSafe = (dateStr) => {
@@ -30,7 +39,6 @@ const formatDateSafe = (dateStr) => {
   try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
 };
 
-// Função para limpar caracteres proibidos em nomes de arquivo
 const cleanFileName = (name) => {
   if (!name) return 'cartaz';
   return name.replace(/[^a-z0-9ãõáéíóúç -]/gi, ' ').trim().substring(0, 50) || 'cartaz';
@@ -45,7 +53,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   const d = { 
       ...DEFAULT_DESIGN, 
       ...design, 
-      positions: { ...DEFAULT_DESIGN.positions, ...(design?.positions || {}) } 
+      positions: { ...(design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS), ...(design?.positions || {}) } 
   };
 
   const safePrice = product.price ? String(product.price) : '0,00';
@@ -145,7 +153,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
   const library = { 
-      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b2', file: 'rebaixo.png', color: '#000000' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } ], 
+      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } ], 
       backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] 
   };
 
@@ -156,15 +164,27 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
-  const resetPositions = () => { if(confirm("Voltar posições para o padrão?")) setDesign(d => ({ ...d, positions: DEFAULT_DESIGN.positions })); };
+  
+  // RESET INTELIGENTE
+  const resetPositions = () => { 
+      if(confirm("Resetar posições para o padrão?")) {
+          // Detecta a orientação atual e aplica o padrão correto
+          const defaultPos = design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS;
+          setDesign(d => ({ ...d, positions: defaultPos })); 
+      }
+  };
 
-  // Atualiza data em todos
+  // TROCA DE FORMATO INTELIGENTE
+  const changeOrientation = (newOri) => {
+      const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS;
+      setDesign({ ...design, orientation: newOri, positions: defaultPos });
+  };
+
   const handleDateChange = (newDate) => {
       setProduct(prev => ({ ...prev, date: newDate }));
       if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate })));
   };
 
-  // Gerar ZIP Local
   const generateLocalZip = async () => {
       if (bulkProducts.length === 0) return;
       setIsGenerating(true);
@@ -188,7 +208,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
       setIsGenerating(false);
   };
 
-  // Gerar Unitário
   const generateSingle = async () => { 
       setIsGenerating(true); 
       const el = document.getElementById('single-ghost'); 
@@ -218,7 +237,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                         <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center">
                             <h3 className="text-blue-900 font-bold text-sm mb-3">GERAÇÃO EM MASSA</h3>
                             <label className="block w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-lg cursor-pointer text-xs font-bold uppercase hover:bg-blue-50 hover:border-blue-500 transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
-                            {/* BOTÃO MUDADO PARA ZIP */}
                             {mode === 'local' && bulkProducts.length > 0 && (
                                 <button onClick={generateLocalZip} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all flex items-center justify-center gap-2">
                                     {isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>}
@@ -247,7 +265,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{editMode ? <Move size={20}/> : <MousePointer2 size={20}/>}</div><div><h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-slate-600'}`}>Mover Itens (Drag & Drop)</h4><p className="text-[10px] text-slate-400">Clique e arraste Nome, Preço e Limite</p></div></div>
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>setDesign({...design, orientation:'portrait'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>setDesign({...design, orientation:'landscape'})} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Fundos</label><div className="grid grid-cols-4 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.backgroundImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
