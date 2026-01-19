@@ -22,16 +22,16 @@ const PORTRAIT_POS = {
 
 const LANDSCAPE_POS = {
     name: { x: 0, y: 220 },
-    price: { x: 0, y: 350 }, // Subiu
-    limit: { x: 0, y: 620 }, // Subiu muito
-    footer: { x: 0, y: 700 } // Subiu para caber na folha (altura 794)
+    price: { x: 0, y: 350 },
+    limit: { x: 0, y: 620 },
+    footer: { x: 0, y: 700 }
 };
 
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
   nameScale: 100, priceScale: 100,
-  positions: PORTRAIT_POS // Começa com o padrão vertical
+  positions: PORTRAIT_POS
 };
 
 const formatDateSafe = (dateStr) => {
@@ -97,10 +97,15 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
         zIndex: 20, padding: '5px'
     }),
     nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none' },
+    
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
-    oldPriceWrapper: { position: 'relative', marginBottom: '-10px', zIndex: 6 },
+    
+    // --- CORREÇÃO DE ESPAÇAMENTO AQUI ---
+    oldPriceWrapper: { position: 'relative', marginBottom: '-30px', zIndex: 6 }, // Aproximei mais (era -10px)
     oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
-    mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '10px' },
+    
+    mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' }, // Removi margem topo
+    
     currency: { fontSize: `${50 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
     priceBig: { fontSize: `${(d.orientation === 'portrait' ? 300 : 240) * scPrice}px`, fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
     sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
@@ -160,21 +165,39 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
 
-  const handleExcel = (e) => { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: 'binary' }); const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); const m = d.map(item => ({ name: item['Produto']||'Produto', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: item['Preço "DE"']?String(item['Preço "DE"']):'', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer })); setBulkProducts(m); if(mode==='local') alert(`${m.length} produtos carregados!`); }; r.readAsBinaryString(f); };
+  const handleExcel = (e) => { 
+      const f = e.target.files[0]; if(!f) return; 
+      const r = new FileReader(); 
+      r.onload = (evt) => { 
+          const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
+          const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
+          const m = d.map(item => ({ 
+              name: item['Produto']||'Produto', 
+              price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
+              // --- CORREÇÃO DO PONTO POR VÍRGULA AQUI ---
+              oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', 
+              unit: item['Unidade']||'Un', 
+              limit: item['Limite']||'', 
+              date: item['Data']||product.date, 
+              footer: product.footer 
+          })); 
+          setBulkProducts(m); 
+          if(mode==='local') alert(`${m.length} produtos carregados!`); 
+      }; 
+      r.readAsBinaryString(f); 
+  };
+
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
   
-  // RESET INTELIGENTE
   const resetPositions = () => { 
       if(confirm("Resetar posições para o padrão?")) {
-          // Detecta a orientação atual e aplica o padrão correto
           const defaultPos = design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS;
           setDesign(d => ({ ...d, positions: defaultPos })); 
       }
   };
 
-  // TROCA DE FORMATO INTELIGENTE
   const changeOrientation = (newOri) => {
       const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS;
       setDesign({ ...design, orientation: newOri, positions: defaultPos });
