@@ -100,11 +100,10 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     
-    // --- CORREÇÃO DE ESPAÇAMENTO AQUI ---
-    oldPriceWrapper: { position: 'relative', marginBottom: '-30px', zIndex: 6 }, // Aproximei mais (era -10px)
+    oldPriceWrapper: { position: 'relative', marginBottom: '-30px', zIndex: 6 },
     oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
     
-    mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' }, // Removi margem topo
+    mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
     
     currency: { fontSize: `${50 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
     priceBig: { fontSize: `${(d.orientation === 'portrait' ? 300 : 240) * scPrice}px`, fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
@@ -145,7 +144,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY
+// 3. FACTORY (Gerador de Cartazes)
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -174,7 +173,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const m = d.map(item => ({ 
               name: item['Produto']||'Produto', 
               price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
-              // --- CORREÇÃO DO PONTO POR VÍRGULA AQUI ---
               oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', 
               unit: item['Unidade']||'Un', 
               limit: item['Limite']||'', 
@@ -212,19 +210,37 @@ const PosterFactory = ({ mode, onAdminReady }) => {
       if (bulkProducts.length === 0) return;
       setIsGenerating(true);
       const zip = new JSZip();
+      
+      // PDF Unificado (Mestre)
+      const docUnified = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
+
       try {
           for (let i = 0; i < bulkProducts.length; i++) {
               const p = bulkProducts[i];
               const el = document.getElementById(`local-ghost-${i}`);
               if (el) {
                   const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 });
+                  const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                  
+                  // 1. PDF Individual
                   const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
-                  pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h);
+                  pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
                   zip.file(`${cleanFileName(p.name)}.pdf`, pdf.output('blob'));
+
+                  // 2. Adicionar ao PDF Unificado
+                  if (i > 0) docUnified.addPage();
+                  // Usar dimensões do unificado
+                  const uw = docUnified.internal.pageSize.getWidth(); 
+                  const uh = docUnified.internal.pageSize.getHeight();
+                  docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
               await new Promise(r => setTimeout(r, 10));
           }
+          
+          // Adicionar PDF Unificado ao ZIP
+          zip.file("Ofertas_Todas.pdf", docUnified.output('blob'));
+
           const content = await zip.generateAsync({ type: "blob" });
           saveAs(content, "CARTAZES-PRONTOS.zip");
       } catch (error) { alert("Erro: " + error.message); }
@@ -288,7 +304,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{editMode ? <Move size={20}/> : <MousePointer2 size={20}/>}</div><div><h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-slate-600'}`}>Mover Itens (Drag & Drop)</h4><p className="text-[10px] text-slate-400">Clique e arraste Nome, Preço e Limite</p></div></div>
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-50'}`}>HORIZONTAL</button></div></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>HORIZONTAL</button></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Fundos</label><div className="grid grid-cols-4 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.backgroundImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
@@ -321,12 +337,14 @@ const AdminDashboard = ({ onLogout }) => {
   const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
-  // --- NOVA FUNÇÃO "PUBLICAR" QUE GERA ZIP NO ADMIN ---
+  // --- NOVA FUNÇÃO "PUBLICAR" COM PDF UNIFICADO ---
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
       setProcessing(true); setProgress(0);
       
       const zip = new JSZip(); // Cria o pacote ZIP
+      // PDF Unificado (Mestre)
+      const docUnified = new jsPDF({ orientation: factoryData.design.orientation, unit: 'mm', format: factoryData.design.size });
 
       try {
           const { bulkProducts, design } = factoryData;
@@ -336,23 +354,31 @@ const AdminDashboard = ({ onLogout }) => {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { 
                   const c = await html2canvas(el, {scale: 1.5, useCORS:true, scrollY: 0}); 
+                  const imgData = c.toDataURL('image/jpeg', 0.8);
                   
+                  // 1. PDF Individual
                   const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
-                  
-                  pdf.addImage(c.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, w, h);
-                  
-                  // Adiciona o PDF ao ZIP com o nome do produto
-                  const fileName = `${cleanFileName(bulkProducts[i].name)}.pdf`;
-                  zip.file(fileName, pdf.output('blob'));
+                  pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
+                  zip.file(`${cleanFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
+
+                  // 2. Adicionar ao PDF Unificado
+                  if (i > 0) docUnified.addPage();
+                  // Usar dimensões do unificado
+                  const uw = docUnified.internal.pageSize.getWidth(); 
+                  const uh = docUnified.internal.pageSize.getHeight();
+                  docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,10));
           }
 
+          // Adiciona PDF Mestre ao ZIP
+          zip.file("Ofertas_Todas.pdf", docUnified.output('blob'));
+
           // Gera o arquivo ZIP final
           const zipContent = await zip.generateAsync({type:"blob"});
-          const fileName = `${Date.now()}-CARTAZES.zip`; // Nome do arquivo na nuvem
+          const fileName = `${Date.now()}-CARTAZES.zip`;
 
           // Upload do ZIP para o Supabase
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
@@ -360,10 +386,9 @@ const AdminDashboard = ({ onLogout }) => {
           
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
           
-          // Salva no banco de dados (agora é um link para o ZIP)
           await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
           
-          alert("Pacote ZIP enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
+          alert("Pacote ZIP (com PDF unificado) enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
