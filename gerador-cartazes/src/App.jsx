@@ -144,7 +144,7 @@ const usePresets = (setDesign) => {
 };
 
 // ============================================================================
-// 3. FACTORY (Gerador de Cartazes)
+// 3. FACTORY
 // ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
@@ -210,8 +210,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
       if (bulkProducts.length === 0) return;
       setIsGenerating(true);
       const zip = new JSZip();
-      
-      // PDF Unificado (Mestre)
       const docUnified = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
 
       try {
@@ -222,24 +220,22 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                   const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 });
                   const imgData = canvas.toDataURL('image/jpeg', 0.8);
                   
-                  // 1. PDF Individual
+                  // PDF Individual
                   const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
                   zip.file(`${cleanFileName(p.name)}.pdf`, pdf.output('blob'));
 
-                  // 2. Adicionar ao PDF Unificado
+                  // PDF Unificado (Mestre)
                   if (i > 0) docUnified.addPage();
-                  // Usar dimensões do unificado
-                  const uw = docUnified.internal.pageSize.getWidth(); 
-                  const uh = docUnified.internal.pageSize.getHeight();
+                  const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
               await new Promise(r => setTimeout(r, 10));
           }
           
-          // Adicionar PDF Unificado ao ZIP
-          zip.file("Ofertas_Todas.pdf", docUnified.output('blob'));
+          // Adiciona o arquivo unificado com o nome solicitado
+          zip.file("#ofertaspack.pdf", docUnified.output('blob'));
 
           const content = await zip.generateAsync({ type: "blob" });
           saveAs(content, "CARTAZES-PRONTOS.zip");
@@ -337,19 +333,18 @@ const AdminDashboard = ({ onLogout }) => {
   const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
-  // --- NOVA FUNÇÃO "PUBLICAR" COM PDF UNIFICADO ---
+  // --- FUNÇÃO "PUBLICAR" NO ADMIN (PDF UNIFICADO ADICIONADO) ---
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
       setProcessing(true); setProgress(0);
       
       const zip = new JSZip(); // Cria o pacote ZIP
-      // PDF Unificado (Mestre)
+      // Cria o PDF Mestre (Unificado)
       const docUnified = new jsPDF({ orientation: factoryData.design.orientation, unit: 'mm', format: factoryData.design.size });
 
       try {
           const { bulkProducts, design } = factoryData;
           
-          // Loop para criar cada PDF individual
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { 
@@ -364,23 +359,19 @@ const AdminDashboard = ({ onLogout }) => {
 
                   // 2. Adicionar ao PDF Unificado
                   if (i > 0) docUnified.addPage();
-                  // Usar dimensões do unificado
-                  const uw = docUnified.internal.pageSize.getWidth(); 
-                  const uh = docUnified.internal.pageSize.getHeight();
+                  const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,10));
           }
 
-          // Adiciona PDF Mestre ao ZIP
-          zip.file("Ofertas_Todas.pdf", docUnified.output('blob'));
+          // Salva o PDF Mestre no ZIP com o nome solicitado
+          zip.file("#ofertaspack.pdf", docUnified.output('blob'));
 
-          // Gera o arquivo ZIP final
           const zipContent = await zip.generateAsync({type:"blob"});
-          const fileName = `${Date.now()}-CARTAZES.zip`;
+          const fileName = `${Date.now()}-CARTAZES.zip`; 
 
-          // Upload do ZIP para o Supabase
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
           
@@ -388,7 +379,7 @@ const AdminDashboard = ({ onLogout }) => {
           
           await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
           
-          alert("Pacote ZIP (com PDF unificado) enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
+          alert("Pacote ZIP enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
