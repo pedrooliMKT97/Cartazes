@@ -151,7 +151,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'DATA AQUI', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'OFERTA VÁLIDA PARA:', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
