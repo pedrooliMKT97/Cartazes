@@ -157,7 +157,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
   const library = { 
-      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' } ], 
+      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' }, { id: 'b9', file: 'dobraoferta.png', color: 'hsl(236, 96%, 53%)' } ], 
       backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] 
   };
 
