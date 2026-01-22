@@ -9,27 +9,19 @@ import {
   User, LogOut, Upload, FileText, 
   BarChart, Download, Clock, Trash2, 
   Image as ImageIcon, Monitor, Layers, Palette, 
-  CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, LayoutTemplate, Move, MousePointer2, Package
+  CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, 
+  LayoutTemplate, Move, MousePointer2, Package,
+  Type, AlignCenter, Minus, Plus
 } from 'lucide-react';
 
-// === POSIÇÕES PADRÃO PARA CADA FORMATO ===
-const PORTRAIT_POS = {
-    name: { x: 0, y: 220 },
-    price: { x: 0, y: 450 },
-    limit: { x: 0, y: 900 },
-    footer: { x: 0, y: 1000 }
-};
-
-const LANDSCAPE_POS = {
-    name: { x: 0, y: 220 },
-    price: { x: 0, y: 350 },
-    limit: { x: 0, y: 620 },
-    footer: { x: 0, y: 700 }
-};
+// === POSIÇÕES PADRÃO ===
+const PORTRAIT_POS = { name: { x: 0, y: 220 }, price: { x: 0, y: 450 }, limit: { x: 0, y: 900 }, footer: { x: 0, y: 1000 } };
+const LANDSCAPE_POS = { name: { x: 0, y: 220 }, price: { x: 0, y: 350 }, limit: { x: 0, y: 620 }, footer: { x: 0, y: 700 } };
 
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
-  bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', showOldPrice: true, 
+  bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', 
+  showOldPrice: true, showSubtitle: true, // Novo: Controle do subtítulo
   nameScale: 100, priceScale: 100,
   positions: PORTRAIT_POS
 };
@@ -85,26 +77,25 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   };
 
   const s = {
-    container: { width: `${width}px`, height: `${height}px`, backgroundImage: d.backgroundImage ? `url(${d.backgroundImage})` : 'none', background: d.backgroundImage ? `url(${d.backgroundImage}) center/cover no-repeat` : d.bgColorFallback, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif', userSelect: 'none' },
+    container: { width: `${width}px`, height: `${height}px`, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif', userSelect: 'none' },
     bannerBox: { width: '100%', height: `${H_BANNER}px`, position: 'absolute', top: 0, left: 0, backgroundImage: d.bannerImage ? `url(${d.bannerImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.05)', zIndex: 10 },
     movable: (key) => ({
         position: 'absolute', left: 0, top: 0,
         transform: `translate(${d.positions[key]?.x || 0}px, ${d.positions[key]?.y || 0}px)`,
-        width: '100%', display: 'flex', justifyContent: 'center',
+        width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         cursor: isEditable ? 'move' : 'default',
         border: isEditable ? '2px dashed #3b82f6' : 'none',
         backgroundColor: isEditable ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
         zIndex: 20, padding: '5px'
     }),
-    nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none' },
+    nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft:'20px', paddingRight:'20px' },
+    // Estilo do Subtítulo (Vermelho e menor)
+    subtitleText: { fontSize: `${((d.orientation === 'portrait' ? 30 : 25) * scName)}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
-    
     oldPriceWrapper: { position: 'relative', marginBottom: '-30px', zIndex: 6 },
     oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
-    
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
-    
     currency: { fontSize: `${50 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
     priceBig: { fontSize: `${(d.orientation === 'portrait' ? 300 : 240) * scPrice}px`, fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
     sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
@@ -117,7 +108,11 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   return (
     <div id={id} style={s.container}>
       <div style={s.bannerBox}>{!d.bannerImage && <div style={{fontSize:'40px', fontWeight:'bold', opacity:0.2, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>BANNER</div>}</div>
-      <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}><div style={s.nameText}>{product.name}</div></div>
+      <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}>
+          <div style={s.nameText}>{product.name}</div>
+          {/* Novo Subtítulo */}
+          {d.showSubtitle && product.subtitle && <div style={s.subtitleText}>{product.subtitle}</div>}
+      </div>
       <div style={s.movable('price')} onMouseDown={(e)=>handleMouseDown(e, 'price')}>
           <div style={s.priceWrapper}>
             {d.showOldPrice && product.oldPrice && <div style={s.oldPriceWrapper}><span style={s.oldPriceText}>De: R$ {product.oldPrice}</span></div>}
@@ -131,7 +126,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
 };
 
 // ============================================================================
-// 2. HOOK PRESETS (NUVEM)
+// 2. HOOK PRESETS
 // ============================================================================
 const usePresets = (setDesign) => {
   const [presets, setPresets] = useState([]);
@@ -151,14 +146,24 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'OFERTA VÁLIDA PARA:', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'DATA AQUI', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
+  // LISTA DE BANNERS LIMPA E CORRETA
   const library = { 
-      banners: [ { id: 'b1', file: 'oferta.png', color: '#dc2626' }, { id: 'b2', file: 'saldao.png', color: '#facc15' }, { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' }, { id: 'b9', file: 'dobraoferta.png', color: 'hsl(236, 96%, 53%)' } ], 
-      backgrounds: [ { id: 'bg1', file: 'vermelho.png', color: 'linear-gradient(to bottom, #ef4444, #991b1b)' }, { id: 'bg2', file: 'amarelo.png', color: 'linear-gradient(to bottom, #fde047, #ca8a04)' } ] 
+      banners: [ 
+        { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
+        { id: 'b2', file: 'saldao.png', color: '#facc15' }, 
+        { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, 
+        { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, 
+        { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, 
+        { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, 
+        { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, 
+        { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' },
+        { id: 'b9', file: 'dobraoferta.png', color: 'hsl(236, 96%, 53%)' }
+      ]
   };
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
@@ -171,13 +176,11 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
           const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
           const m = d.map(item => ({ 
-              name: item['Produto']||'Produto', 
+              name: item['Produto']||'Produto',
+              subtitle: item['Subtitulo']||'', // Lendo subtítulo do Excel 
               price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
               oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', 
-              unit: item['Unidade']||'Un', 
-              limit: item['Limite']||'', 
-              date: item['Data']||product.date, 
-              footer: product.footer 
+              unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
           })); 
           setBulkProducts(m); 
           if(mode==='local') alert(`${m.length} produtos carregados!`); 
@@ -188,23 +191,9 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
-  
-  const resetPositions = () => { 
-      if(confirm("Resetar posições para o padrão?")) {
-          const defaultPos = design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS;
-          setDesign(d => ({ ...d, positions: defaultPos })); 
-      }
-  };
-
-  const changeOrientation = (newOri) => {
-      const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS;
-      setDesign({ ...design, orientation: newOri, positions: defaultPos });
-  };
-
-  const handleDateChange = (newDate) => {
-      setProduct(prev => ({ ...prev, date: newDate }));
-      if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate })));
-  };
+  const resetPositions = () => { if(confirm("Resetar posições?")) { const defaultPos = design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign(d => ({ ...d, positions: defaultPos })); }};
+  const changeOrientation = (newOri) => { const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign({ ...design, orientation: newOri, positions: defaultPos }); };
+  const handleDateChange = (newDate) => { setProduct(prev => ({ ...prev, date: newDate })); if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate }))); };
 
   const generateLocalZip = async () => {
       if (bulkProducts.length === 0) return;
@@ -219,24 +208,17 @@ const PosterFactory = ({ mode, onAdminReady }) => {
               if (el) {
                   const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, scrollY: 0 });
                   const imgData = canvas.toDataURL('image/jpeg', 0.8);
-                  
-                  // PDF Individual
                   const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
                   zip.file(`${cleanFileName(p.name)}.pdf`, pdf.output('blob'));
-
-                  // PDF Unificado (Mestre)
                   if (i > 0) docUnified.addPage();
                   const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
               await new Promise(r => setTimeout(r, 10));
           }
-          
-          // Adiciona o arquivo unificado com o nome solicitado
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
-
           const content = await zip.generateAsync({ type: "blob" });
           saveAs(content, "CARTAZES-PRONTOS.zip");
       } catch (error) { alert("Erro: " + error.message); }
@@ -274,14 +256,25 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <label className="block w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-lg cursor-pointer text-xs font-bold uppercase hover:bg-blue-50 hover:border-blue-500 transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
                             {mode === 'local' && bulkProducts.length > 0 && (
                                 <button onClick={generateLocalZip} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all flex items-center justify-center gap-2">
-                                    {isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>}
-                                    {isGenerating ? `Gerando ZIP...` : `Baixar ZIP (${bulkProducts.length})`}
+                                    {isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>} {isGenerating ? `Gerando ZIP...` : `Baixar ZIP (${bulkProducts.length})`}
                                 </button>
                             )}
                             {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold flex items-center justify-center gap-1"><CheckCircle size={12}/> {bulkProducts.length} produtos carregados</p>}
                         </div>
                         <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24"/></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-20"/></div>
+                        
+                        {/* NOVO CAMPO SUBTÍTULO */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Subtítulo (Vermelho)</label>
+                                <label className="flex items-center gap-2 cursor-pointer text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors">
+                                    <input type="checkbox" checked={design.showSubtitle} onChange={e=>setDesign({...design, showSubtitle:e.target.checked})} className="hidden"/> {design.showSubtitle ? 'Ocultar' : 'Mostrar'}
+                                </label>
+                            </div>
+                            {design.showSubtitle && <input type="text" value={product.subtitle} onChange={e=>setProduct({...product, subtitle:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-red-600 focus:ring-2 focus:ring-red-500 outline-none placeholder-red-200" placeholder="Ex: Pote 200g"/>}
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
@@ -301,8 +294,10 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>HORIZONTAL</button></div></div>
+                        
+                        {/* AREA DE BANNERS - FUNDOS REMOVIDOS */}
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Fundos</label><div className="grid grid-cols-4 gap-2">{library.backgrounds.map(b=><div key={b.id} onClick={()=>selectLib('bg', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.backgroundImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'backgroundImage')}/></label></div></div>
+                        
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4"><h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
                     </div>
@@ -333,31 +328,23 @@ const AdminDashboard = ({ onLogout }) => {
   const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
   const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
 
-  // --- FUNÇÃO "PUBLICAR" NO ADMIN (PDF UNIFICADO ADICIONADO) ---
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
       setProcessing(true); setProgress(0);
-      
-      const zip = new JSZip(); // Cria o pacote ZIP
-      // Cria o PDF Mestre (Unificado)
+      const zip = new JSZip();
       const docUnified = new jsPDF({ orientation: factoryData.design.orientation, unit: 'mm', format: factoryData.design.size });
 
       try {
           const { bulkProducts, design } = factoryData;
-          
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { 
                   const c = await html2canvas(el, {scale: 1.5, useCORS:true, scrollY: 0}); 
                   const imgData = c.toDataURL('image/jpeg', 0.8);
-                  
-                  // 1. PDF Individual
                   const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
                   zip.file(`${cleanFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
-
-                  // 2. Adicionar ao PDF Unificado
                   if (i > 0) docUnified.addPage();
                   const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
@@ -365,20 +352,13 @@ const AdminDashboard = ({ onLogout }) => {
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               await new Promise(r=>setTimeout(r,10));
           }
-
-          // Salva o PDF Mestre no ZIP com o nome solicitado
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
-
           const zipContent = await zip.generateAsync({type:"blob"});
           const fileName = `${Date.now()}-CARTAZES.zip`; 
-
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
-          
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          
           await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
-          
           alert("Pacote ZIP enviado com sucesso!"); setTitle(''); setExpiry(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
