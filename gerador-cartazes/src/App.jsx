@@ -11,7 +11,7 @@ import {
   Image as ImageIcon, Monitor, Layers, Palette, 
   CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, 
   LayoutTemplate, Move, MousePointer2, Package,
-  Type, AlignCenter, Minus, Plus
+  Type, AlignCenter, Minus, Plus, Eye, X, AlertCircle
 } from 'lucide-react';
 
 // === POSIÇÕES PADRÃO ===
@@ -42,52 +42,24 @@ const cleanFileName = (name) => {
 const Poster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
   if (!product) return null;
   
-  const d = { 
-      ...DEFAULT_DESIGN, 
-      ...design, 
-      positions: { ...(design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS), ...(design?.positions || {}) } 
-  };
-
+  const d = { ...DEFAULT_DESIGN, ...design, positions: { ...(design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS), ...(design?.positions || {}) } };
   const safePrice = product.price ? String(product.price) : '0,00';
   const priceParts = safePrice.includes(',') ? safePrice.split(',') : [safePrice, '00'];
-  const H_BANNER = 220; 
-  const scName = (Number(d.nameScale) || 100) / 100;
-  const scPrice = (Number(d.priceScale) || 100) / 100;
+  const H_BANNER = 220; const scName = (Number(d.nameScale) || 100) / 100; const scPrice = (Number(d.priceScale) || 100) / 100;
 
   const handleMouseDown = (e, key) => {
       if (!isEditable) return;
       e.preventDefault();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startPos = d.positions[key] || { x: 0, y: 0 };
-
-      const handleMouseMove = (moveEvent) => {
-          const scaleFactor = 3.5; 
-          const deltaX = (moveEvent.clientX - startX) * scaleFactor;
-          const deltaY = (moveEvent.clientY - startY) * scaleFactor;
-          onUpdatePosition(key, { x: startPos.x + deltaX, y: startPos.y + deltaY });
-      };
-
-      const handleMouseUp = () => {
-          document.removeEventListener('mousemove', handleMouseMove);
-          document.removeEventListener('mouseup', handleMouseUp);
-      };
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
+      const handleMouseMove = (ev) => { onUpdatePosition(key, { x: startPos.x + (ev.clientX - startX) * 3.5, y: startPos.y + (ev.clientY - startY) * 3.5 }); };
+      const handleMouseUp = () => { document.removeEventListener('mousemove', handleMouseMove); document.removeEventListener('mouseup', handleMouseUp); };
+      document.addEventListener('mousemove', handleMouseMove); document.addEventListener('mouseup', handleMouseUp);
   };
 
   const s = {
     container: { width: `${width}px`, height: `${height}px`, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif', userSelect: 'none' },
     bannerBox: { width: '100%', height: `${H_BANNER}px`, position: 'absolute', top: 0, left: 0, backgroundImage: d.bannerImage ? `url(${d.bannerImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.05)', zIndex: 10 },
-    movable: (key) => ({
-        position: 'absolute', left: 0, top: 0,
-        transform: `translate(${d.positions[key]?.x || 0}px, ${d.positions[key]?.y || 0}px)`,
-        width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        cursor: isEditable ? 'move' : 'default',
-        border: isEditable ? '2px dashed #3b82f6' : 'none',
-        backgroundColor: isEditable ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-        zIndex: 20, padding: '5px'
-    }),
+    movable: (key) => ({ position: 'absolute', left: 0, top: 0, transform: `translate(${d.positions[key]?.x || 0}px, ${d.positions[key]?.y || 0}px)`, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: isEditable ? 'move' : 'default', border: isEditable ? '2px dashed #3b82f6' : 'none', backgroundColor: isEditable ? 'rgba(59, 130, 246, 0.1)' : 'transparent', zIndex: 20, padding: '5px' }),
     nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft:'20px', paddingRight:'20px' },
     subtitleText: { fontSize: `${((d.orientation === 'portrait' ? 30 : 25) * scName)}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
@@ -143,7 +115,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'OFERTA VÁLIDA:', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'DATA AQUI', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
@@ -172,11 +144,8 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
           const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
           const m = d.map(item => ({ 
-              name: item['Produto']||'Produto',
-              subtitle: item['Subtitulo']||'', 
-              price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
-              oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', 
-              unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
+              name: item['Produto']||'Produto', subtitle: item['Subtitulo']||'', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
+              oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
           })); 
           setBulkProducts(m); 
           if(mode==='local') alert(`${m.length} produtos carregados!`); 
@@ -187,10 +156,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
-  
-  // RESET AGORA SÓ APARECE PARA ADMIN
   const resetPositions = () => { if(confirm("Resetar posições?")) { const defaultPos = design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign(d => ({ ...d, positions: defaultPos })); }};
-  
   const changeOrientation = (newOri) => { const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign({ ...design, orientation: newOri, positions: defaultPos }); };
   const handleDateChange = (newDate) => { setProduct(prev => ({ ...prev, date: newDate })); if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate }))); };
 
@@ -199,7 +165,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
       setIsGenerating(true);
       const zip = new JSZip();
       const docUnified = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
-
       try {
           for (let i = 0; i < bulkProducts.length; i++) {
               const p = bulkProducts[i];
@@ -285,8 +250,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                     <div className="space-y-6">
                         <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
                              <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>
-                             
-                             {/* CONTROLE DE PERMISSÃO: APENAS ADMIN PODE SALVAR/RESETAR */}
                              {mode === 'admin' && (
                                  <div className="flex gap-2">
                                      <button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button>
@@ -294,7 +257,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                                  </div>
                              )}
                              </div>
-                             
                              {presets.length > 0 ? (<div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">{presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span>
                              {mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}
                              </div>))}</div>) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
@@ -321,19 +283,36 @@ const PosterFactory = ({ mode, onAdminReady }) => {
 // 4. ADMIN DASHBOARD
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
-  const [stats, setStats] = useState({});
+  const [allDownloads, setAllDownloads] = useState([]);
   const [files, setFiles] = useState([]);
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
+  
+  // ESTADO PARA O MODAL DE DETALHES
+  const [selectedDetail, setSelectedDetail] = useState(null);
+
+  const STORES = ['loja01', 'loja02', 'loja03', 'loja04', 'loja05'];
 
   useEffect(() => { fetchData(); }, []);
-  const fetchData = async () => { try { const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false }); if(f) setFiles(f); const { data: d } = await supabase.from('downloads').select('*'); if(d) { const c = {}; d.forEach(x => { const n = x.store_email.split('@')[0]; c[n] = (c[n]||0)+1; }); setStats(c); } } catch(e){} };
+  const fetchData = async () => { 
+      try { 
+          const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false }); 
+          if(f) setFiles(f); 
+          const { data: d } = await supabase.from('downloads').select('*'); 
+          if(d) setAllDownloads(d);
+      } catch(e){} 
+  };
   
-  const handleDelete = async (id) => { await supabase.from('shared_files').delete().eq('id', id); fetchData(); };
-  const resetDownloads = async () => { if(confirm("Zerar?")) { await supabase.from('downloads').delete().neq('id', 0); fetchData(); }};
+  const handleDelete = async (id) => { if(confirm("Apagar encarte?")) { await supabase.from('shared_files').delete().eq('id', id); fetchData(); }};
+
+  // CHECK SE LOJA BAIXOU ARQUIVO
+  const checkDownload = (store, fileId) => {
+      // Procura se existe algum download para este arquivo que contenha o nome da loja no email
+      return allDownloads.some(d => d.file_id === fileId && d.store_email.includes(store));
+  };
 
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
@@ -361,11 +340,8 @@ const AdminDashboard = ({ onLogout }) => {
           }
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
           const zipContent = await zip.generateAsync({type:"blob"});
-          
-          // === NOME DO ARQUIVO BASEADO NO TÍTULO ===
           const safeTitle = title.replace(/[^a-z0-9ãõáéíóúç -]/gi, '_').trim() || `Campanha_${Date.now()}`;
           const fileName = `${safeTitle}.zip`; 
-
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
@@ -376,17 +352,81 @@ const AdminDashboard = ({ onLogout }) => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans">
-        <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50"><h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Monitor className="text-blue-400"/> PAINEL ADMIN</h1><button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button></div>
+    <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
+        {/* HEADER */}
+        <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
+            <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Monitor className="text-blue-400"/> PAINEL ADMIN</h1>
+            <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
+        </div>
+
+        {/* MODAL DE DETALHES DE ENTREGA */}
+        {selectedDetail && (
+            <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="bg-slate-900 p-4 flex justify-between items-center">
+                        <h3 className="text-white font-bold text-sm uppercase flex items-center gap-2"><BarChart size={16} className="text-blue-400"/> Status de Entrega</h3>
+                        <button onClick={()=>setSelectedDetail(null)} className="text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+                    </div>
+                    <div className="p-6">
+                        <h4 className="font-bold text-slate-800 text-lg mb-6 leading-tight border-b pb-4">{selectedDetail.title}</h4>
+                        <div className="space-y-3">
+                            {STORES.map((store, index) => {
+                                const isDownloaded = checkDownload(store, selectedDetail.id);
+                                return (
+                                    <div key={index} className={`flex justify-between items-center p-3 rounded-lg border ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isDownloaded ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</div>
+                                            <span className={`font-bold uppercase ${isDownloaded ? 'text-green-800' : 'text-slate-400'}`}>{store}</span>
+                                        </div>
+                                        {isDownloaded ? 
+                                            <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Recebido</span> : 
+                                            <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Clock size={14}/> Pendente</span>
+                                        }
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30"><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/></div><div className="w-36"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/></div><button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all flex items-center gap-2">{processing?`Gerando ZIP ${progress}%`:<><Upload size={18}/> PUBLICAR (ZIP)</>}</button></div>
+                <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30">
+                    <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label>
+                        <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/>
+                    </div>
+                    <div className="w-36">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label>
+                        <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
+                    </div>
+                    <button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all flex items-center gap-2">{processing?`Gerando...`:<><Upload size={18}/> PUBLICAR</>}</button>
+                </div>
                 <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
             </div>
+            
+            {/* PAINEL DIREITO: LISTA DE ENCARTES */}
             <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-700 flex items-center gap-2"><BarChart className="text-blue-500"/> Downloads por Loja</h3><button onClick={resetDownloads} className="text-xs text-red-500 hover:text-red-700 font-bold flex items-center gap-1"><RefreshCcw size={10}/> ZERAR</button></div><div className="space-y-2">{['loja01','loja02','loja03','loja04','loja05'].map(s=><div key={s} className="flex justify-between text-sm p-3 bg-slate-50 rounded-lg border border-slate-100"> <span className="font-bold text-slate-600 uppercase">{s}</span> <span className="font-bold text-blue-600 bg-blue-50 px-2 rounded">{stats[s]||0}</span> </div>)}</div></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Clock className="text-purple-500"/> Encartes Ativos</h3><div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">{files.map(f=><div key={f.id} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg border border-slate-100 group"><div><p className="font-bold text-slate-800">{f.title}</p><p className="text-xs text-slate-400">Vence: {formatDateSafe(f.expiry_date)}</p></div><button onClick={()=>handleDelete(f.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button></div>)}</div></div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas Ativas</h3>
+                    <div className="space-y-3">
+                        {files.length === 0 ? <p className="text-slate-400 text-center py-10">Nenhuma campanha ativa.</p> : files.map(f => (
+                            <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
+                                <div 
+                                    className="flex-1 cursor-pointer" 
+                                    onClick={() => setSelectedDetail(f)} // ABRE O MODAL AO CLICAR
+                                >
+                                    <h4 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                                        {f.title} <Eye size={14} className="text-slate-300 group-hover:text-blue-400"/>
+                                    </h4>
+                                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Clock size={12}/> Vence: {formatDateSafe(f.expiry_date)}</p>
+                                </div>
+                                <button onClick={()=>handleDelete(f.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18}/></button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
