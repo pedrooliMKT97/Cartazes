@@ -21,7 +21,7 @@ const LANDSCAPE_POS = { name: { x: 0, y: 220 }, price: { x: 0, y: 350 }, limit: 
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', 
-  showOldPrice: true, showSubtitle: true, // Novo: Controle do subtítulo
+  showOldPrice: true, showSubtitle: true, 
   nameScale: 100, priceScale: 100,
   positions: PORTRAIT_POS
 };
@@ -89,9 +89,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
         zIndex: 20, padding: '5px'
     }),
     nameText: { fontSize: `${((d.orientation === 'portrait' ? 60 : 50) * scName)}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.1', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft:'20px', paddingRight:'20px' },
-    // Estilo do Subtítulo (Vermelho e menor)
     subtitleText: { fontSize: `${((d.orientation === 'portrait' ? 30 : 25) * scName)}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
-    
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     oldPriceWrapper: { position: 'relative', marginBottom: '-30px', zIndex: 6 },
     oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
@@ -110,7 +108,6 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
       <div style={s.bannerBox}>{!d.bannerImage && <div style={{fontSize:'40px', fontWeight:'bold', opacity:0.2, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>BANNER</div>}</div>
       <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}>
           <div style={s.nameText}>{product.name}</div>
-          {/* Novo Subtítulo */}
           {d.showSubtitle && product.subtitle && <div style={s.subtitleText}>{product.subtitle}</div>}
       </div>
       <div style={s.movable('price')} onMouseDown={(e)=>handleMouseDown(e, 'price')}>
@@ -146,12 +143,11 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'DATA AQUI', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'OFERTA VÁLIDA:', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
-  // LISTA DE BANNERS LIMPA E CORRETA
   const library = { 
       banners: [ 
         { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
@@ -177,7 +173,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
           const m = d.map(item => ({ 
               name: item['Produto']||'Produto',
-              subtitle: item['Subtitulo']||'', // Lendo subtítulo do Excel 
+              subtitle: item['Subtitulo']||'', 
               price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
               oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', 
               unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
@@ -191,7 +187,10 @@ const PosterFactory = ({ mode, onAdminReady }) => {
   const handleFileUpload = (e, field) => { const f = e.target.files[0]; if(f) setDesign({...design, [field]: URL.createObjectURL(f)}); };
   const selectLib = (t, i) => { if(t==='banner') setDesign(p=>({...p, bannerImage: i.file ? `/assets/banners/${i.file}` : null})); else setDesign(p=>({...p, backgroundImage: i.file ? `/assets/backgrounds/${i.file}` : null, bgColorFallback: i.color})); };
   const updatePosition = (key, newPos) => { setDesign(prev => ({ ...prev, positions: { ...prev.positions, [key]: newPos } })); };
+  
+  // RESET AGORA SÓ APARECE PARA ADMIN
   const resetPositions = () => { if(confirm("Resetar posições?")) { const defaultPos = design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign(d => ({ ...d, positions: defaultPos })); }};
+  
   const changeOrientation = (newOri) => { const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign({ ...design, orientation: newOri, positions: defaultPos }); };
   const handleDateChange = (newDate) => { setProduct(prev => ({ ...prev, date: newDate })); if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate }))); };
 
@@ -264,7 +263,6 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                         <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-20"/></div>
                         
-                        {/* NOVO CAMPO SUBTÍTULO */}
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="text-xs font-bold text-slate-500 uppercase">Subtítulo (Vermelho)</label>
@@ -286,18 +284,27 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                 ) : (
                     <div className="space-y-6">
                         <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
-                             <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div><div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div></div>
-                             {presets.length > 0 ? (<div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">{presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span><button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button></div>))}</div>) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
+                             <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>
+                             
+                             {/* CONTROLE DE PERMISSÃO: APENAS ADMIN PODE SALVAR/RESETAR */}
+                             {mode === 'admin' && (
+                                 <div className="flex gap-2">
+                                     <button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button>
+                                     <button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button>
+                                 </div>
+                             )}
+                             </div>
+                             
+                             {presets.length > 0 ? (<div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">{presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span>
+                             {mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}
+                             </div>))}</div>) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
                         </div>
                         <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${editMode ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'}`} onClick={() => setEditMode(!editMode)}>
                             <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{editMode ? <Move size={20}/> : <MousePointer2 size={20}/>}</div><div><h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-slate-600'}`}>Mover Itens (Drag & Drop)</h4><p className="text-[10px] text-slate-400">Clique e arraste Nome, Preço e Limite</p></div></div>
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>HORIZONTAL</button></div></div>
-                        
-                        {/* AREA DE BANNERS - FUNDOS REMOVIDOS */}
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
-                        
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4"><h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
                     </div>
@@ -354,7 +361,11 @@ const AdminDashboard = ({ onLogout }) => {
           }
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
           const zipContent = await zip.generateAsync({type:"blob"});
-          const fileName = `${Date.now()}-CARTAZES.zip`; 
+          
+          // === NOME DO ARQUIVO BASEADO NO TÍTULO ===
+          const safeTitle = title.replace(/[^a-z0-9ãõáéíóúç -]/gi, '_').trim() || `Campanha_${Date.now()}`;
+          const fileName = `${safeTitle}.zip`; 
+
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
