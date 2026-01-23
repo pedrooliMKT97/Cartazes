@@ -26,14 +26,28 @@ const DEFAULT_DESIGN = {
   positions: PORTRAIT_POS
 };
 
+// === UTILITÁRIOS SEGUROS ===
 const formatDateSafe = (dateStr) => {
   if (!dateStr) return 'Data n/a';
-  try { return dateStr.split('-').reverse().join('/'); } catch (e) { return dateStr; }
+  try { return String(dateStr).split('-').reverse().join('/'); } catch (e) { return dateStr; }
 };
 
 const cleanFileName = (name) => {
   if (!name) return 'cartaz';
-  return name.replace(/[^a-z0-9ãõáéíóúç -]/gi, ' ').trim().substring(0, 50) || 'cartaz';
+  return String(name).replace(/[^a-z0-9ãõáéíóúç -]/gi, ' ').trim().substring(0, 50) || 'cartaz';
+};
+
+// Converte preço do Excel de forma segura (mantendo ,90)
+const formatExcelPrice = (val) => {
+    if (!val) return '';
+    try {
+        // Troca vírgula por ponto, converte para float, fixa 2 decimais e volta para vírgula
+        const number = parseFloat(String(val).replace(',', '.'));
+        if (isNaN(number)) return val; // Se não for número, devolve original
+        return number.toFixed(2).replace('.', ',');
+    } catch (e) {
+        return val;
+    }
 };
 
 // ============================================================================
@@ -144,8 +158,14 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
           const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
           const m = d.map(item => ({ 
-              name: item['Produto']||'Produto', subtitle: item['Subtitulo']||'', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
-              oldPrice: item['Preço "DE"'] ? String(item['Preço "DE"']).replace('.', ',') : '', unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
+              name: item['Produto']||'Produto', 
+              subtitle: item['Subtitulo']||'', 
+              price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
+              
+              // === PROTEÇÃO DE PREÇO V66 ===
+              oldPrice: formatExcelPrice(item['Preço "DE"']), 
+              
+              unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
           })); 
           setBulkProducts(m); 
           if(mode==='local') alert(`${m.length} produtos carregados!`); 
@@ -308,10 +328,10 @@ const AdminDashboard = ({ onLogout }) => {
   
   const handleDelete = async (id) => { if(confirm("Apagar encarte?")) { await supabase.from('shared_files').delete().eq('id', id); fetchData(); }};
 
-  // CHECK SE LOJA BAIXOU ARQUIVO
+  // CHECK SE LOJA BAIXOU ARQUIVO (BLINDADO CONTRA ERROS)
   const checkDownload = (store, fileId) => {
-      // Procura se existe algum download para este arquivo que contenha o nome da loja no email
-      return allDownloads.some(d => d.file_id === fileId && d.store_email.includes(store));
+      // Usa Optional Chaining (?.) para não travar se store_email for null
+      return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store));
   };
 
   const send = async () => {
@@ -407,12 +427,12 @@ const AdminDashboard = ({ onLogout }) => {
                 <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
             </div>
             
-            {/* PAINEL DIREITO: LISTA DE ENCARTES */}
+            {/* PAINEL DIREITO: LISTA DE ENCARTES (BLINDADO) */}
             <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas Ativas</h3>
                     <div className="space-y-3">
-                        {files.length === 0 ? <p className="text-slate-400 text-center py-10">Nenhuma campanha ativa.</p> : files.map(f => (
+                        {(!files || files.length === 0) ? <p className="text-slate-400 text-center py-10">Nenhuma campanha ativa.</p> : files.map(f => (
                             <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
                                 <div 
                                     className="flex-1 cursor-pointer" 
@@ -491,7 +511,10 @@ const App = () => {
   useEffect(() => { supabase.auth.getSession().then(({ data: { session } }) => setSession(session)); const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session)); return () => subscription.unsubscribe(); }, []);
   const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); };
   if (!session) return <LoginScreen onLogin={(s) => setSession(s)} />;
-  if (session.user.email.includes('admin')) return <AdminDashboard onLogout={handleLogout} />;
+  
+  // PROTEÇÃO V66: Evita tela branca se 'user' ou 'email' ainda não carregaram
+  if (session?.user?.email?.includes('admin')) return <AdminDashboard onLogout={handleLogout} />;
+  
   return <StoreLayout user={session.user} onLogout={handleLogout} />;
 };
 
