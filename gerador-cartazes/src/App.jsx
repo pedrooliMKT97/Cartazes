@@ -144,6 +144,8 @@ const PosterFactory = ({ mode, onAdminReady }) => {
         { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, 
         { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, 
         { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' },
+        { id: 'b10', file: 'ssc.png', color: '#ff0040' },
+        { id: 'b11', file: 'sac.png', color: 'rgb(0, 255, 128)' },
         { id: 'b9', file: 'dobraoferta.png', color: 'hsl(236, 96%, 53%)' }
       ]
   };
