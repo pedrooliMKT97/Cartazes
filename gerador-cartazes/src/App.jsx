@@ -21,33 +21,35 @@ const LANDSCAPE_POS = { name: { x: 0, y: 220 }, price: { x: 0, y: 350 }, limit: 
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
   bgColorFallback: '#ffffff', nameColor: '#000000', priceColor: '#cc0000', 
-  showOldPrice: true, showSubtitle: true, 
+  showOldPrice: true, 
+  showSubtitle: false, // Padrão: Oculto
   nameScale: 100, priceScale: 100,
   positions: PORTRAIT_POS
 };
 
-// === UTILITÁRIOS SEGUROS ===
+// === UTILITÁRIOS ===
 const formatDateSafe = (dateStr) => {
   if (!dateStr) return 'Data n/a';
   try { return String(dateStr).split('-').reverse().join('/'); } catch (e) { return dateStr; }
 };
 
-const cleanFileName = (name) => {
+// Função para limpar nomes de arquivo (Evita erro Invalid Key no Supabase)
+const sanitizeFileName = (name) => {
   if (!name) return 'cartaz';
-  return String(name).replace(/[^a-z0-9ãõáéíóúç -]/gi, ' ').trim().substring(0, 50) || 'cartaz';
+  return String(name)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Tira acentos
+    .replace(/[^a-zA-Z0-9._-]/g, "_") // Tira espaços e caracteres especiais
+    .replace(/_+/g, "_") // Evita underline duplo
+    .toLowerCase();
 };
 
-// Converte preço do Excel de forma segura (mantendo ,90)
 const formatExcelPrice = (val) => {
     if (!val) return '';
     try {
-        // Troca vírgula por ponto, converte para float, fixa 2 decimais e volta para vírgula
         const number = parseFloat(String(val).replace(',', '.'));
-        if (isNaN(number)) return val; // Se não for número, devolve original
+        if (isNaN(number)) return val; 
         return number.toFixed(2).replace('.', ',');
-    } catch (e) {
-        return val;
-    }
+    } catch (e) { return val; }
 };
 
 // ============================================================================
@@ -55,7 +57,6 @@ const formatExcelPrice = (val) => {
 // ============================================================================
 const Poster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
   if (!product) return null;
-  
   const d = { ...DEFAULT_DESIGN, ...design, positions: { ...(design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS), ...(design?.positions || {}) } };
   const safePrice = product.price ? String(product.price) : '0,00';
   const priceParts = safePrice.includes(',') ? safePrice.split(',') : [safePrice, '00'];
@@ -109,7 +110,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
 };
 
 // ============================================================================
-// 2. HOOK PRESETS
+// 2. PRESETS E FACTORY
 // ============================================================================
 const usePresets = (setDesign) => {
   const [presets, setPresets] = useState([]);
@@ -121,32 +122,52 @@ const usePresets = (setDesign) => {
   return { presets, savePreset, loadPreset, deletePreset };
 };
 
-// ============================================================================
-// 3. FACTORY
-// ============================================================================
 const PosterFactory = ({ mode, onAdminReady }) => {
   const [activeTab, setActiveTab] = useState('content');
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'KG', limit: '6', date: 'DATA AQUI', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', date: 'OFERTA VÁLIDA:', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   
+  const [autoLoaded, setAutoLoaded] = useState(false);
+
+  // === CARREGAMENTO AUTOMÁTICO ===
+  useEffect(() => {
+    if (!autoLoaded && presets.length > 0) {
+        const defaultPreset = presets.find(p => p.name.trim().toUpperCase() === 'PADRÃO VERTICAL');
+        if (defaultPreset) {
+            setDesign(prev => ({ ...DEFAULT_DESIGN, ...defaultPreset.data }));
+        }
+        setAutoLoaded(true);
+    }
+  }, [presets, autoLoaded]);
+
+  // === LISTA DE BANNERS ===
   const library = { 
       banners: [ 
-        { id: 'b1', file: 'oferta.png', color: '#dc2626' }, 
-        { id: 'b2', file: 'saldao.png', color: '#facc15' }, 
-        { id: 'b3', file: 'segundaleve.png', color: 'rgb(21, 235, 250)' }, 
-        { id: 'b4', file: 'superaçougue.png', color: '#6f3107' }, 
-        { id: 'b5', file: 'supersacolão.png', color: 'hsl(122, 83%, 33%)' }, 
-        { id: 'b6', file: 'sextou.png', color: 'rgb(250, 196, 21)' }, 
-        { id: 'b7', file: 'ofertaclube.png', color: 'hsl(236, 96%, 53%)' }, 
-        { id: 'b8', file: 'fechames.png', color: 'hsl(0, 0%, 0%)' },
-        { id: 'b10', file: 'ssc.png', color: '#ff0040' },
-        { id: 'b11', file: 'sac.png', color: 'rgb(0, 255, 128)' },
-        { id: 'b9', file: 'dobraoferta.png', color: 'hsl(236, 96%, 53%)' }
+        { id: 'b1', file: 'ofertacliente.png', color: '#dc2626' }, 
+        { id: 'b2', file: 'ofertaclientedobra.png', color: '#dc2626' }, 
+        { id: 'b3', file: 'promocao.png', color: '#facc15' }, 
+        { id: 'b4', file: 'promocaodobra.png', color: '#facc15' }, 
+        { id: 'b5', file: 'rebaixo.png', color: '#000000' }, 
+        { id: 'b6', file: 'rebaixodobra.png', color: '#000000' }, 
+        { id: 'b7', file: 'fruta.png', color: '#16a34a' }, 
+        { id: 'b8', file: 'frutadobra.png', color: '#16a34a' },
+        { id: 'b9', file: 'carne.png', color: '#7f1d1d' },
+        { id: 'b10', file: 'carnedobra.png', color: '#7f1d1d' },
+        { id: 'b11', file: 'fechames.png', color: '#1e293b' },
+        { id: 'b12', file: 'fechamesdobra.png', color: '#1e293b' },
+        { id: 'b13', file: 'nopontoleve.png', color: '#06b6d4' },
+        { id: 'b14', file: 'nopontolevedobra.png', color: '#06b6d4' },
+        { id: 'b15', file: 'sextou.png', color: '#ea580c' },
+        { id: 'b16', file: 'sextoudobra.png', color: '#ea580c' },
+        { id: 'b17', file: 'superaçougue.png', color: '#991b1b' },
+        { id: 'b18', file: 'superaçouguedobra.png', color: '#991b1b' },
+        { id: 'b19', file: 'supersacolão.png', color: '#15803d' },
+        { id: 'b20', file: 'supersacolãodobra.png', color: '#15803d' }
       ]
   };
 
@@ -163,10 +184,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
               name: item['Produto']||'Produto', 
               subtitle: item['Subtitulo']||'', 
               price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
-              
-              // === PROTEÇÃO DE PREÇO V66 ===
               oldPrice: formatExcelPrice(item['Preço "DE"']), 
-              
               unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer 
           })); 
           setBulkProducts(m); 
@@ -197,7 +215,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                   const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size });
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
-                  zip.file(`${cleanFileName(p.name)}.pdf`, pdf.output('blob'));
+                  zip.file(`${sanitizeFileName(p.name)}.pdf`, pdf.output('blob'));
                   if (i > 0) docUnified.addPage();
                   const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
@@ -219,7 +237,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
           const pdf = new jsPDF({ orientation: design.orientation, unit: 'mm', format: design.size }); 
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); 
           pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); 
-          pdf.save(`${cleanFileName(product.name)}.pdf`); 
+          pdf.save(`${sanitizeFileName(product.name)}.pdf`); 
       } 
       setIsGenerating(false); 
   };
@@ -260,7 +278,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             {design.showSubtitle && <input type="text" value={product.subtitle} onChange={e=>setProduct({...product, subtitle:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-red-600 focus:ring-2 focus:ring-red-500 outline-none placeholder-red-200" placeholder="Ex: Pote 200g"/>}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['Un','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
+                        <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['Unid','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
                             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>handleDateChange(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
@@ -288,7 +306,7 @@ const PosterFactory = ({ mode, onAdminReady }) => {
                             <div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
                         </div>
                         <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>HORIZONTAL</button></div></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-3 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-4 gap-2">{library.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4"><h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
                     </div>
@@ -313,9 +331,7 @@ const AdminDashboard = ({ onLogout }) => {
   const [progress, setProgress] = useState(0);
   const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
   
-  // ESTADO PARA O MODAL DE DETALHES
   const [selectedDetail, setSelectedDetail] = useState(null);
-
   const STORES = ['loja01', 'loja02', 'loja03', 'loja04', 'loja05'];
 
   useEffect(() => { fetchData(); }, []);
@@ -329,12 +345,7 @@ const AdminDashboard = ({ onLogout }) => {
   };
   
   const handleDelete = async (id) => { if(confirm("Apagar encarte?")) { await supabase.from('shared_files').delete().eq('id', id); fetchData(); }};
-
-  // CHECK SE LOJA BAIXOU ARQUIVO (BLINDADO CONTRA ERROS)
-  const checkDownload = (store, fileId) => {
-      // Usa Optional Chaining (?.) para não travar se store_email for null
-      return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store));
-  };
+  const checkDownload = (store, fileId) => { return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store)); };
 
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
@@ -352,7 +363,7 @@ const AdminDashboard = ({ onLogout }) => {
                   const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
-                  zip.file(`${cleanFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
+                  zip.file(`${sanitizeFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
                   if (i > 0) docUnified.addPage();
                   const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
@@ -362,7 +373,7 @@ const AdminDashboard = ({ onLogout }) => {
           }
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
           const zipContent = await zip.generateAsync({type:"blob"});
-          const safeTitle = title.replace(/[^a-z0-9ãõáéíóúç -]/gi, '_').trim() || `Campanha_${Date.now()}`;
+          const safeTitle = sanitizeFileName(title) || `Campanha_${Date.now()}`;
           const fileName = `${safeTitle}.zip`; 
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
@@ -375,13 +386,10 @@ const AdminDashboard = ({ onLogout }) => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
-        {/* HEADER */}
         <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
             <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Monitor className="text-blue-400"/> PAINEL ADMIN</h1>
             <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
         </div>
-
-        {/* MODAL DE DETALHES DE ENTREGA */}
         {selectedDetail && (
             <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -400,10 +408,7 @@ const AdminDashboard = ({ onLogout }) => {
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isDownloaded ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</div>
                                             <span className={`font-bold uppercase ${isDownloaded ? 'text-green-800' : 'text-slate-400'}`}>{store}</span>
                                         </div>
-                                        {isDownloaded ? 
-                                            <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Recebido</span> : 
-                                            <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Clock size={14}/> Pendente</span>
-                                        }
+                                        {isDownloaded ? <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Recebido</span> : <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Clock size={14}/> Pendente</span>}
                                     </div>
                                 );
                             })}
@@ -412,37 +417,23 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
             </div>
         )}
-
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
                 <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30">
-                    <div className="flex-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label>
-                        <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/>
-                    </div>
-                    <div className="w-36">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label>
-                        <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
-                    </div>
+                    <div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label><input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/></div>
+                    <div className="w-36"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label><input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/></div>
                     <button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all flex items-center gap-2">{processing?`Gerando...`:<><Upload size={18}/> PUBLICAR</>}</button>
                 </div>
                 <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} /></div>
             </div>
-            
-            {/* PAINEL DIREITO: LISTA DE ENCARTES (BLINDADO) */}
             <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas Ativas</h3>
                     <div className="space-y-3">
                         {(!files || files.length === 0) ? <p className="text-slate-400 text-center py-10">Nenhuma campanha ativa.</p> : files.map(f => (
                             <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
-                                <div 
-                                    className="flex-1 cursor-pointer" 
-                                    onClick={() => setSelectedDetail(f)} // ABRE O MODAL AO CLICAR
-                                >
-                                    <h4 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors flex items-center gap-2">
-                                        {f.title} <Eye size={14} className="text-slate-300 group-hover:text-blue-400"/>
-                                    </h4>
+                                <div className="flex-1 cursor-pointer" onClick={() => setSelectedDetail(f)}>
+                                    <h4 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors flex items-center gap-2">{f.title} <Eye size={14} className="text-slate-300 group-hover:text-blue-400"/></h4>
                                     <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Clock size={12}/> Vence: {formatDateSafe(f.expiry_date)}</p>
                                 </div>
                                 <button onClick={()=>handleDelete(f.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18}/></button>
@@ -452,22 +443,31 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
             </div>
         </div>
-        <div style={{position:'absolute', top:0, left:'-9999px'}}>{factoryData.bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={factoryData.design} width={factoryData.design.orientation==='portrait'?794:1123} height={factoryData.design.orientation==='portrait'?1123:794} />)}</div>
+        <div style={{position:'absolute', top:0, left:'-9999px'}}>
+            {factoryData.bulkProducts.map((p, i) => (
+                <Poster 
+                    key={i} 
+                    id={`admin-ghost-${i}`} 
+                    product={p} 
+                    design={factoryData.design} 
+                    width={factoryData.design.orientation==='portrait'?794:1123} 
+                    height={factoryData.design.orientation==='portrait'?1123:794} 
+                />
+            ))}
+        </div>
     </div>
   );
 };
 
 // ============================================================================
-// 5. LOJA LAYOUT
+// 5. LOJA LAYOUT & LOGIN & APP
 // ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
-
   useEffect(() => { loadFiles(); }, []);
   const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); } catch(e) {} };
   const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); } catch(e){} };
-
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
         <div className="w-24 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center py-8 text-white z-50 shadow-2xl">
@@ -499,9 +499,6 @@ const StoreLayout = ({ user, onLogout }) => {
   );
 };
 
-// ============================================================================
-// 6. LOGIN & APP (CORREÇÃO DE LOGOUT)
-// ============================================================================
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false);
   const handleLogin = async (e) => { e.preventDefault(); setLoading(true); const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if(error) { alert("Erro: "+error.message); setLoading(false); } else { setTimeout(() => onLogin(data.session), 500); } };
@@ -513,10 +510,7 @@ const App = () => {
   useEffect(() => { supabase.auth.getSession().then(({ data: { session } }) => setSession(session)); const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session)); return () => subscription.unsubscribe(); }, []);
   const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); };
   if (!session) return <LoginScreen onLogin={(s) => setSession(s)} />;
-  
-  // PROTEÇÃO V66: Evita tela branca se 'user' ou 'email' ainda não carregaram
   if (session?.user?.email?.includes('admin')) return <AdminDashboard onLogout={handleLogout} />;
-  
   return <StoreLayout user={session.user} onLogout={handleLogout} />;
 };
 
