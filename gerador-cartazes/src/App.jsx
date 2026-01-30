@@ -167,7 +167,9 @@ const PosterFactory = ({ mode, onAdminReady }) => {
         { id: 'b17', file: 'superaçougue.png', color: '#991b1b' },
         { id: 'b18', file: 'superaçouguedobra.png', color: '#991b1b' },
         { id: 'b19', file: 'supersacolão.png', color: '#15803d' },
-        { id: 'b20', file: 'supersacolãodobra.png', color: '#15803d' }
+        { id: 'b20', file: 'supersacolãodobra.png', color: '#15803d' },
+        { id: 'b21', file: 'comumdobra.png', color: '#15873d' },
+        { id: 'b22', file: 'comum.png', color: '#15863d' }
       ]
   };
 
