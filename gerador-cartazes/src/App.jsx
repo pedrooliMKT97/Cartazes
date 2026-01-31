@@ -11,7 +11,7 @@ import {
   Image as ImageIcon, Monitor, Layers, Palette, 
   CheckCircle, RefreshCcw, Sliders, Save, Bookmark, Loader, 
   LayoutTemplate, Move, MousePointer2, Package,
-  Type, AlignCenter, Minus, Plus, Eye, X, AlertCircle, History
+  Type, AlignCenter, Minus, Plus, Eye, X, AlertCircle, History, Search, Filter, Check
 } from 'lucide-react';
 
 // === POSIÇÕES PADRÃO ===
@@ -43,11 +43,7 @@ const formatTimeSafe = (dateStr) => {
 
 const sanitizeFileName = (name) => {
   if (!name) return 'cartaz';
-  return String(name)
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
-    .replace(/[^a-zA-Z0-9._-]/g, "_") 
-    .replace(/_+/g, "_") 
-    .toLowerCase();
+  return String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+/g, "_").toLowerCase();
 };
 
 const formatExcelPrice = (val) => {
@@ -129,13 +125,12 @@ const usePresets = (setDesign) => {
   return { presets, savePreset, loadPreset, deletePreset };
 };
 
-// Recebe 'currentUser' para registrar quem fez
 const PosterFactory = ({ mode, onAdminReady, currentUser }) => {
   const [activeTab, setActiveTab] = useState('content');
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: '6', date: 'OFERTA VÁLIDA:', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', date: 'OFERTA VÁLIDA:', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
@@ -190,15 +185,10 @@ const PosterFactory = ({ mode, onAdminReady, currentUser }) => {
   const changeOrientation = (newOri) => { const defaultPos = newOri === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS; setDesign({ ...design, orientation: newOri, positions: defaultPos }); };
   const handleDateChange = (newDate) => { setProduct(prev => ({ ...prev, date: newDate })); if (bulkProducts.length > 0) setBulkProducts(prev => prev.map(item => ({ ...item, date: newDate }))); };
 
-  // === FUNÇÃO PARA SALVAR LOG NO SUPABASE (SILENCIOSA) ===
   const logAction = async () => {
       try {
           const bannerName = design.bannerImage ? design.bannerImage.split('/').pop().replace('.png','') : 'sem-banner';
-          await supabase.from('poster_logs').insert([{
-              store_email: currentUser?.email || 'desconhecido',
-              product_name: product.name,
-              banner_used: bannerName
-          }]);
+          await supabase.from('poster_logs').insert([{ store_email: currentUser?.email || 'desconhecido', product_name: product.name, banner_used: bannerName }]);
       } catch (err) { console.error("Erro ao logar:", err); }
   };
 
@@ -227,14 +217,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser }) => {
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
           const content = await zip.generateAsync({ type: "blob" });
           saveAs(content, "CARTAZES-PRONTOS.zip");
-          
-          // Loga a ação em massa
-          await supabase.from('poster_logs').insert([{
-              store_email: currentUser?.email || 'desconhecido',
-              product_name: `Lote de ${bulkProducts.length} produtos`,
-              banner_used: design.bannerImage ? design.bannerImage.split('/').pop() : 'sem-banner'
-          }]);
-
+          await supabase.from('poster_logs').insert([{ store_email: currentUser?.email || 'desconhecido', product_name: `Lote de ${bulkProducts.length} produtos`, banner_used: design.bannerImage ? design.bannerImage.split('/').pop() : 'sem-banner' }]);
       } catch (error) { alert("Erro: " + error.message); }
       setIsGenerating(false);
   };
@@ -248,8 +231,6 @@ const PosterFactory = ({ mode, onAdminReady, currentUser }) => {
           const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight(); 
           pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h); 
           pdf.save(`${sanitizeFileName(product.name)}.pdf`);
-          
-          // CHAMA O LOG (Fire and Forget)
           logAction();
       } 
       setIsGenerating(false); 
@@ -337,13 +318,17 @@ const PosterFactory = ({ mode, onAdminReady, currentUser }) => {
 // ============================================================================
 const AdminDashboard = ({ onLogout }) => {
   const [allDownloads, setAllDownloads] = useState([]);
-  const [logs, setLogs] = useState([]); // Novo estado para logs
+  const [logs, setLogs] = useState([]); 
   const [files, setFiles] = useState([]);
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
+  
+  // ESTADOS NOVOS PARA MODAL DE CAMPANHAS E FILTRO
+  const [showCampaignsModal, setShowCampaignsModal] = useState(false);
+  const [logFilter, setLogFilter] = useState('all'); // all, loja01, loja02...
   
   const [selectedDetail, setSelectedDetail] = useState(null);
   const STORES = ['loja01', 'loja02', 'loja03', 'loja04', 'loja05'];
@@ -355,13 +340,22 @@ const AdminDashboard = ({ onLogout }) => {
           if(f) setFiles(f); 
           const { data: d } = await supabase.from('downloads').select('*'); 
           if(d) setAllDownloads(d);
-          // Busca logs
-          const { data: l } = await supabase.from('poster_logs').select('*').order('created_at', { ascending: false }).limit(50);
+          const { data: l } = await supabase.from('poster_logs').select('*').order('created_at', { ascending: false }).limit(100);
           if(l) setLogs(l);
       } catch(e){} 
   };
   
   const handleDelete = async (id) => { if(confirm("Apagar encarte?")) { await supabase.from('shared_files').delete().eq('id', id); fetchData(); }};
+  
+  // NOVA FUNÇÃO: LIMPAR HISTÓRICO
+  const clearHistory = async () => {
+      if(!confirm("Isso apagará TODO o histórico de logs. Tem certeza?")) return;
+      try {
+          await supabase.from('poster_logs').delete().neq('id', 0); // Deleta tudo
+          fetchData();
+      } catch(e) { alert("Erro ao limpar: " + e.message); }
+  };
+
   const checkDownload = (store, fileId) => { return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store)); };
 
   const send = async () => {
@@ -401,14 +395,47 @@ const AdminDashboard = ({ onLogout }) => {
       setProcessing(false);
   };
 
+  // Filtragem dos logs
+  const filteredLogs = logFilter === 'all' ? logs : logs.filter(l => l.store_email && l.store_email.includes(logFilter));
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
         <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
             <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Monitor className="text-blue-400"/> PAINEL ADMIN</h1>
             <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
         </div>
+
+        {/* MODAL GESTÃO DE CAMPANHAS (VER TODAS) */}
+        {showCampaignsModal && (
+            <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="bg-slate-900 p-4 flex justify-between items-center">
+                        <h3 className="text-white font-bold text-lg uppercase flex items-center gap-2"><Layers size={20} className="text-purple-400"/> Gerenciar Todas as Campanhas</h3>
+                        <button onClick={()=>setShowCampaignsModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={24}/></button>
+                    </div>
+                    <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+                        <div className="grid grid-cols-1 gap-3">
+                            {files.length === 0 ? <p className="text-center text-slate-400 mt-10">Nenhuma campanha encontrada.</p> : files.map(f => (
+                                <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-slate-800 text-lg">{f.title}</h4>
+                                        <p className="text-sm text-slate-500 mt-1 flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setSelectedDetail(f)} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold hover:bg-blue-200 flex items-center gap-2"><Eye size={16}/> Detalhes</button>
+                                        <button onClick={()=>handleDelete(f.id)} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold hover:bg-red-200 flex items-center gap-2"><Trash2 size={16}/> Excluir</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL DETALHES DE ENTREGA */}
         {selectedDetail && (
-            <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
                     <div className="bg-slate-900 p-4 flex justify-between items-center">
                         <h3 className="text-white font-bold text-sm uppercase flex items-center gap-2"><BarChart size={16} className="text-blue-400"/> Status de Entrega</h3>
@@ -434,6 +461,7 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
             </div>
         )}
+
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
                 <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30">
@@ -443,41 +471,44 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
                 <div className="flex-1 overflow-hidden relative"><PosterFactory mode="admin" onAdminReady={setFactoryData} currentUser={{email:'admin'}} /></div>
             </div>
+            
             <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
-                    <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas Ativas</h3>
-                    <div className="space-y-3">
-                        {(!files || files.length === 0) ? <p className="text-slate-400 text-center py-10">Nenhuma campanha ativa.</p> : files.map(f => (
-                            <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
-                                <div className="flex-1 cursor-pointer" onClick={() => setSelectedDetail(f)}>
-                                    <h4 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors flex items-center gap-2">{f.title} <Eye size={14} className="text-slate-300 group-hover:text-blue-400"/></h4>
-                                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Clock size={12}/> Vence: {formatDateSafe(f.expiry_date)}</p>
-                                </div>
-                                <button onClick={()=>handleDelete(f.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18}/></button>
-                            </div>
-                        ))}
+                {/* CAMPANHAS ATIVAS (RESUMO) */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex justify-between items-center">
+                    <div>
+                        <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas Ativas</h3>
+                        <p className="text-sm text-slate-400 mt-1">{files.length} campanhas cadastradas atualmente.</p>
                     </div>
+                    <button onClick={() => setShowCampaignsModal(true)} className="px-5 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg hover:bg-purple-700 transition-all flex items-center gap-2"><Sliders size={16}/> VER TODAS / GERENCIAR</button>
                 </div>
 
-                {/* === NOVO PAINEL DE LOGS EM TEMPO REAL === */}
+                {/* HISTÓRICO DE PRODUÇÃO COM FILTROS */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><History className="text-orange-500"/> Histórico de Produção (Lojas)</h3>
-                        <button onClick={fetchData} className="text-xs text-blue-500 hover:underline flex items-center gap-1"><RefreshCcw size={12}/> Atualizar</button>
+                    <div className="flex flex-col gap-4 mb-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><History className="text-orange-500"/> Histórico de Produção</h3>
+                            <div className="flex gap-2">
+                                <button onClick={clearHistory} className="text-xs text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg font-bold flex items-center gap-1 transition-colors"><Trash2 size={12}/> LIMPAR TUDO</button>
+                                <button onClick={fetchData} className="text-xs text-blue-500 hover:bg-blue-50 px-3 py-2 rounded-lg font-bold flex items-center gap-1 transition-colors"><RefreshCcw size={12}/> ATUALIZAR</button>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <Filter size={16} className="text-slate-400"/>
+                            <span className="text-xs font-bold text-slate-500 uppercase">Filtrar por Loja:</span>
+                            <select value={logFilter} onChange={(e) => setLogFilter(e.target.value)} className="bg-transparent font-bold text-slate-700 outline-none flex-1">
+                                <option value="all">Todas as Lojas</option>
+                                {STORES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                            </select>
+                        </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                                <tr>
-                                    <th className="p-3">Horário</th>
-                                    <th className="p-3">Loja</th>
-                                    <th className="p-3">Produto</th>
-                                    <th className="p-3">Banner</th>
-                                </tr>
+                                <tr><th className="p-3">Horário</th><th className="p-3">Loja</th><th className="p-3">Produto</th><th className="p-3">Banner</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {logs.length === 0 ? <tr><td colSpan="4" className="p-4 text-center text-slate-400">Nenhum cartaz gerado recentemente.</td></tr> : logs.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50">
+                                {filteredLogs.length === 0 ? <tr><td colSpan="4" className="p-4 text-center text-slate-400">Nenhum registro encontrado.</td></tr> : filteredLogs.map(log => (
+                                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="p-3 font-mono text-xs text-slate-500">{formatDateSafe(log.created_at.split('T')[0])} {formatTimeSafe(log.created_at)}</td>
                                         <td className="p-3 font-bold text-slate-700 uppercase">{log.store_email ? log.store_email.split('@')[0] : 'Admin'}</td>
                                         <td className="p-3 text-slate-600">{log.product_name}</td>
@@ -488,7 +519,6 @@ const AdminDashboard = ({ onLogout }) => {
                         </table>
                     </div>
                 </div>
-
             </div>
         </div>
         <div style={{position:'absolute', top:0, left:'-9999px'}}>{factoryData.bulkProducts.map((p,i)=><Poster key={i} id={`admin-ghost-${i}`} product={p} design={factoryData.design} width={factoryData.design.orientation==='portrait'?794:1123} height={factoryData.design.orientation==='portrait'?1123:794} />)}</div>
@@ -502,10 +532,35 @@ const AdminDashboard = ({ onLogout }) => {
 const StoreLayout = ({ user, onLogout }) => {
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
+  const [myDownloads, setMyDownloads] = useState([]); // IDS dos arquivos baixados
+  const [searchTerm, setSearchTerm] = useState(''); // Busca
+
   useEffect(() => { loadFiles(); }, []);
-  const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(data) setFiles(data); } catch(e) {} };
-  const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); } catch(e){} };
   
+  const loadFiles = async () => { 
+      try { 
+          const today = new Date().toISOString().split('T')[0]; 
+          // Busca arquivos
+          const { data: f } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); 
+          if(f) setFiles(f); 
+          
+          // Busca downloads JÁ feitos por essa loja
+          const { data: dls } = await supabase.from('downloads').select('file_id').eq('store_email', user.email);
+          if(dls) setMyDownloads(dls.map(d => d.file_id));
+
+      } catch(e) {} 
+  };
+
+  const registerDownload = async (fileId) => { 
+      try { 
+          await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); 
+          setMyDownloads(prev => [...prev, fileId]); // Atualiza visualmente na hora
+      } catch(e){} 
+  };
+
+  // Filtra arquivos pela busca
+  const filteredFiles = files.filter(f => f.title.toLowerCase().includes(searchTerm.toLowerCase()));
+
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
         <div className="w-24 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center py-8 text-white z-50 shadow-2xl">
@@ -519,19 +574,45 @@ const StoreLayout = ({ user, onLogout }) => {
         <div className="flex-1 overflow-hidden relative">
             {view === 'files' && (
                 <div className="p-10 h-full overflow-y-auto">
-                    <h2 className="text-3xl font-extrabold text-slate-800 mb-8 flex gap-3 items-center"><LayoutTemplate className="text-blue-600"/> Encartes da Matriz</h2>
+                    <div className="flex justify-between items-end mb-8">
+                        <h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center"><LayoutTemplate className="text-blue-600"/> Encartes da Matriz</h2>
+                        
+                        {/* BARRA DE PESQUISA */}
+                        <div className="relative w-96">
+                            <Search className="absolute left-4 top-3.5 text-slate-400" size={20}/>
+                            <input 
+                                type="text" 
+                                placeholder="Pesquisar campanha..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600"
+                            />
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {files.length > 0 ? files.map(f=>(
-                            <div key={f.id} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group hover:-translate-y-1">
-                                <div className="flex justify-between mb-6"><div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500"><FileText size={20}/></div><span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span></div>
-                                <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
-                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className="block w-full py-4 bg-slate-900 text-white font-bold rounded-xl text-center hover:bg-blue-600 shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 group-hover:scale-105"><Download size={20}/> Baixar PACOTE (ZIP)</a>
-                            </div>
-                        )) : (<div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte disponível no momento.</p></div>)}
+                        {filteredFiles.length > 0 ? filteredFiles.map(f => {
+                            const isDownloaded = myDownloads.includes(f.id);
+                            return (
+                                <div key={f.id} className={`p-6 rounded-2xl shadow-sm transition-all duration-300 border group hover:-translate-y-1 ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100 hover:shadow-xl'}`}>
+                                    <div className="flex justify-between mb-6">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDownloaded ? 'bg-green-200 text-green-700' : 'bg-red-50 text-red-500'}`}>
+                                            {isDownloaded ? <Check size={20}/> : <FileText size={20}/>}
+                                        </div>
+                                        <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
+                                    </div>
+                                    <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
+                                    
+                                    <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} 
+                                       className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>
+                                        {isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> Baixar PACOTE (ZIP)</>}
+                                    </a>
+                                </div>
+                            );
+                        }) : (<div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte encontrado.</p></div>)}
                     </div>
                 </div>
             )}
-            {/* Passando user para a fábrica saber quem é */}
             {view === 'factory' && <PosterFactory mode="local" currentUser={user} />}
         </div>
     </div>
