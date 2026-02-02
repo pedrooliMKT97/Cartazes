@@ -155,7 +155,8 @@ const PosterFactory = ({ mode, onAdminReady, currentUser }) => {
         { id: 'b13', file: 'nopontoleve.png', color: '#06b6d4' }, { id: 'b14', file: 'nopontolevedobra.png', color: '#06b6d4' },
         { id: 'b15', file: 'sextou.png', color: '#ea580c' }, { id: 'b16', file: 'sextoudobra.png', color: '#ea580c' },
         { id: 'b17', file: 'superaçougue.png', color: '#991b1b' }, { id: 'b18', file: 'superaçouguedobra.png', color: '#991b1b' },
-        { id: 'b19', file: 'supersacolão.png', color: '#15803d' }, { id: 'b20', file: 'supersacolãodobra.png', color: '#15803d' }
+        { id: 'b19', file: 'supersacolão.png', color: '#15803d' }, { id: 'b20', file: 'supersacolãodobra.png', color: '#15803d' },
+        { id: 'b21', file: 'comum.png', color: 'hsl(143, 28%, 34%)' }, { id: 'b22', file: 'comumdobra.png', color: '#15803d' }
       ]
   };
 
