@@ -49,6 +49,12 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const lSpacing = d.letterSpacing || 0;
 
+  // === CONFIGURAÇÃO DE AJUSTE FINO (MEXA AQUI) ===
+  // Aqui você define tamanhos diferentes para Vertical (portrait) e Horizontal (landscape)
+  const oldPriceConfig = d.orientation === 'portrait' 
+    ? { size: '40px', margin: '-15px' }  // <--- VERTICAL: Maior e mais perto
+    : { size: '25px', margin: '-55px' };  // <--- HORIZONTAL: Menor e mais afastado (para não sobrepor)
+
   const handleMouseDown = (e, key) => {
       if (!isEditable) return; e.preventDefault(); const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
       const handleMouseMove = (ev) => { onUpdatePosition(key, { x: startPos.x + (ev.clientX - startX) * 3.5, y: startPos.y + (ev.clientY - startY) * 3.5 }); };
@@ -64,10 +70,9 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     
-    // === ALTERAÇÕES AQUI ===
-    oldPriceWrapper: { position: 'relative', marginBottom: '-15px', zIndex: 6 }, // Margem alterada para -15px
-    oldPriceText: { fontSize: '55px', fontWeight: 'bold', color: '#555' },      // Fonte alterada para 30px
-    // =======================
+    // === APLICANDO A CONFIGURAÇÃO DINÂMICA ===
+    oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, zIndex: 6 }, 
+    oldPriceText: { fontSize: oldPriceConfig.size, fontWeight: 'bold', color: '#555' },      
 
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
     currency: { fontSize: `${45 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
@@ -75,7 +80,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
     cents: { fontSize: `${75 * scPrice}px`, fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
     unitBadge: { fontSize: `${30 * scPrice}px`, fontWeight: 'bold', textTransform: 'uppercase', color: '#333', backgroundColor: 'transparent', padding: '0', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center' },
-    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ffffff', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgb(255, 255, 255)', borderRadius:'8px', pointerEvents: 'none' },
+    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ddd', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgba(255,255,255,0.8)', borderRadius:'8px', pointerEvents: 'none' },
     footerText: { fontSize: '18px', fontWeight: 'bold', color: d.nameColor, textTransform: 'uppercase', pointerEvents: 'none', letterSpacing: '2px' }
   };
 
@@ -349,7 +354,17 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                 ) : (
                     <div className="space-y-6">
                         {/* LISTA DE PRESETS COM ALTURA AUMENTADA PARA NÃO ROLAR TANTO */}
-                        <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm"><div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>{mode === 'admin' && (<div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div>)}</div>{presets.length > 0 ? (<div className="max-h-96 overflow-y-auto space-y-1 custom-scrollbar">{presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span>{mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}</div>))}</div>) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}</div>
+                        <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
+                            <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2">
+                                <div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>
+                                {mode === 'admin' && (<div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div>)}
+                            </div>
+                            {presets.length > 0 ? (
+                                <div className="space-y-1"> {/* REMOVIDO max-h-96 e overflow-y-auto */}
+                                    {presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span>{mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}</div>))}
+                                </div>
+                            ) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
+                        </div>
                         
                         {/* CONTROLES EXCLUSIVOS PARA O ADMIN */}
                         {mode === 'admin' && (
@@ -361,7 +376,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                                 <Lock size={20} className="text-yellow-600"/>
                                 <div>
                                     <h4 className="font-bold text-xs text-yellow-800 uppercase">Edição Bloqueada</h4>
-                                    <p className="text-[10px] text-yellow-700">Selecione um Preset acima.</p>
+                                    <p className="text-[10px] text-yellow-700">Selecione um Preset acima para mudar o formato.</p>
                                 </div>
                             </div>
                         )}
