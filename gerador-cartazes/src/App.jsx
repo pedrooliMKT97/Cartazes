@@ -11,7 +11,7 @@ import {
   Image as ImageIcon, Layers, 
   CheckCircle, RefreshCcw, Sliders, Save, 
   Bookmark, Loader, LayoutTemplate, Move, 
-  Package, Eye, X, Search, Filter, Check, Star, Settings, Lock
+  Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder
 } from 'lucide-react';
 
 // === CONFIGURAÇÕES GERAIS ===
@@ -33,7 +33,7 @@ const DEFAULT_DESIGN = {
   positions: { ...PORTRAIT_POS, ...MEGA_PORTRAIT_POS }
 };
 
-// === HELPER FUNCTIONS ===
+// === UTILITÁRIOS ===
 const formatDateSafe = (d) => { try { return String(d).split('-').reverse().join('/'); } catch (e) { return d; } };
 const formatTimeSafe = (d) => { try { return new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
 const sanitizeFileName = (n) => String(n||'cartaz').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_").toLowerCase();
@@ -367,7 +367,9 @@ const AdminDashboard = ({ onLogout }) => {
   const [showCampaignsModal, setShowCampaignsModal] = useState(false);
   const [logFilter, setLogFilter] = useState('all'); 
   const [selectedDetail, setSelectedDetail] = useState(null);
-  const [factoryMode, setFactoryMode] = useState('default'); // ADMIN CONTROLA ISSO
+  const [adminTab, setAdminTab] = useState('factory'); // NOVO: Controla aba (Factory ou Upload)
+  const [uploadFile, setUploadFile] = useState(null);
+  const [factoryMode, setFactoryMode] = useState('default'); 
   const STORES = ['loja01', 'loja02', 'loja03', 'loja04', 'loja05'];
 
   useEffect(() => { fetchData(); }, []);
@@ -385,6 +387,32 @@ const AdminDashboard = ({ onLogout }) => {
   const handleDelete = async (id) => { if(confirm("Apagar encarte?")) { await supabase.from('shared_files').delete().eq('id', id); fetchData(); }};
   const clearHistory = async () => { if(!confirm("Limpar histórico?")) return; try { await supabase.from('poster_logs').delete().neq('id', 0); fetchData(); } catch(e){} };
   const checkDownload = (store, fileId) => { return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store)); };
+
+  const handleDirectUpload = async () => {
+      if (!uploadFile || !title || !expiry) return alert("Preencha título, validade e escolha o arquivo!");
+      setProcessing(true);
+      try {
+          const fileExt = uploadFile.name.split('.').pop();
+          const fileName = `${sanitizeFileName(title)}_${Date.now()}.${fileExt}`;
+          
+          const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, uploadFile);
+          if (upErr) throw upErr;
+          
+          const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
+          
+          await supabase.from('shared_files').insert([{ 
+              title, 
+              expiry_date: expiry, 
+              file_url: publicUrl, 
+              products_json: [], // Vazio pois é upload direto
+              design_json: {} 
+          }]);
+          
+          alert("Arquivo enviado com sucesso!"); 
+          setTitle(''); setExpiry(''); setUploadFile(null); fetchData();
+      } catch(e) { alert("Erro no upload: "+e.message); }
+      setProcessing(false);
+  };
 
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
@@ -428,13 +456,24 @@ const AdminDashboard = ({ onLogout }) => {
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
         <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
-            <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Layers className="text-blue-400"/> PAINEL ADMIN</h1>
-            
-            {/* SELETOR DE MODO NO ADMIN */}
-            <div className="flex bg-slate-800 rounded-lg p-1">
-                <button onClick={() => setFactoryMode('default')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'default' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>PADRÃO</button>
-                <button onClick={() => setFactoryMode('mega10')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'mega10' ? 'bg-yellow-500 text-slate-900' : 'text-slate-400 hover:text-white'}`}>MEGA 10</button>
+            <div className="flex items-center gap-6">
+                <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Layers className="text-blue-400"/> PAINEL ADMIN</h1>
+                <div className="flex bg-slate-800 rounded-lg p-1 gap-1">
+                    <button onClick={()=>setAdminTab('factory')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='factory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                        <Settings size={14}/> GERADOR
+                    </button>
+                    <button onClick={()=>setAdminTab('upload')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='upload' ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                        <FileUp size={14}/> UPLOAD DIRETO
+                    </button>
+                </div>
             </div>
+
+            {adminTab === 'factory' && (
+                <div className="flex bg-slate-800 rounded-lg p-1">
+                    <button onClick={() => setFactoryMode('default')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'default' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}>PADRÃO</button>
+                    <button onClick={() => setFactoryMode('mega10')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'mega10' ? 'bg-yellow-500 text-slate-900' : 'text-slate-400 hover:text-white'}`}>MEGA 10</button>
+                </div>
+            )}
 
             <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
         </div>
@@ -496,22 +535,45 @@ const AdminDashboard = ({ onLogout }) => {
 
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                <div className="p-6 bg-white border-b flex gap-3 items-end shadow-sm z-30">
-                    <div className="flex-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título</label>
-                        <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg" placeholder="Ex: Campanha Verão"/>
+                {/* ÁREA DE PUBLICAÇÃO (Muda conforme a aba) */}
+                <div className="p-6 bg-white border-b flex flex-col gap-4 shadow-sm z-30">
+                    <div className="flex gap-3 items-end">
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label>
+                            <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/>
+                        </div>
+                        <div className="w-36">
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label>
+                            <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
+                        </div>
                     </div>
-                    <div className="w-36">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label>
-                        <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg"/>
-                    </div>
-                    <button onClick={send} disabled={processing} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 shadow-lg flex items-center gap-2">
-                        {processing?`Gerando...`:<><Upload size={18}/> PUBLICAR</>}
+                    
+                    {adminTab === 'upload' && (
+                        <div className="w-full">
+                            <label className="block w-full py-8 bg-green-50 border-2 border-dashed border-green-300 text-green-700 rounded-xl cursor-pointer hover:bg-green-100 transition-all text-center">
+                                <FileUp className="mx-auto mb-2" size={32}/>
+                                <span className="font-bold text-sm block">CLIQUE PARA SELECIONAR PDF ou ZIP</span>
+                                <span className="text-xs opacity-70 block mt-1">{uploadFile ? uploadFile.name : 'Nenhum arquivo selecionado'}</span>
+                                <input type="file" className="hidden" onChange={(e) => setUploadFile(e.target.files[0])} accept=".pdf,.zip,.rar" />
+                            </label>
+                        </div>
+                    )}
+
+                    <button onClick={adminTab === 'factory' ? send : handleDirectUpload} disabled={processing} className={`w-full py-4 font-bold rounded-xl shadow-lg text-white flex items-center justify-center gap-2 transition-all ${processing ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-1'} ${adminTab === 'factory' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                        {processing ? <Loader className="animate-spin"/> : (adminTab === 'factory' ? <><Upload size={20}/> PUBLICAR CARTAZES</> : <><CheckCircle size={20}/> ENVIAR ARQUIVO</>)}
                     </button>
                 </div>
-                <div className="flex-1 overflow-hidden relative">
-                    {/* PASSANDO factoryType para a fábrica */}
-                    <PosterFactory mode="admin" onAdminReady={setFactoryData} currentUser={{email:'admin'}} factoryType={factoryMode} />
+
+                <div className="flex-1 overflow-hidden relative bg-slate-100">
+                    {adminTab === 'factory' ? (
+                        <PosterFactory mode="admin" onAdminReady={setFactoryData} currentUser={{email:'admin'}} factoryType={factoryMode} />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10 text-center">
+                            <Folder size={64} className="mb-4 text-green-200"/>
+                            <h3 className="text-xl font-bold text-slate-600">Modo de Upload Direto</h3>
+                            <p className="max-w-xs mt-2 text-sm">Use este modo para enviar PDFs ou ZIPs prontos (feitos no Photoshop/Canva) diretamente para as lojas.</p>
+                        </div>
+                    )}
                 </div>
             </div>
             
@@ -588,35 +650,23 @@ const StoreLayout = ({ user, onLogout }) => {
   const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data: f } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(f) setFiles(f); const { data: dls } = await supabase.from('downloads').select('file_id').eq('store_email', user.email); if(dls) setMyDownloads(dls.map(d => d.file_id)); } catch(e) {} };
   const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); setMyDownloads(prev => [...prev, fileId]); } catch(e){} };
   
-  // RENDERIZAÇÃO CONDICIONAL LIMPA (SEM ANINHAMENTO COMPLEXO)
-  const renderContent = () => {
-      if (view === 'files') {
-          const filteredFiles = files.filter(f => f.title.toLowerCase().includes(searchTerm.toLowerCase()));
+  const renderFiles = () => {
+      const filtered = files.filter(f => f.title.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (filtered.length === 0) return <div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte encontrado.</p></div>;
+      
+      return filtered.map(f => { 
+          const isDownloaded = myDownloads.includes(f.id); 
           return (
-            <div className="p-10 h-full overflow-y-auto">
-                <div className="flex justify-between items-end mb-8"><h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center"><LayoutTemplate className="text-blue-600"/> Encartes da Matriz</h2><div className="relative w-96"><Search className="absolute left-4 top-3.5 text-slate-400" size={20}/><input type="text" placeholder="Pesquisar campanha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600"/></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredFiles.length > 0 ? filteredFiles.map(f => {
-                        const isDownloaded = myDownloads.includes(f.id);
-                        return (
-                            <div key={f.id} className={`p-6 rounded-2xl shadow-sm transition-all duration-300 border group hover:-translate-y-1 ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100 hover:shadow-xl'}`}>
-                                <div className="flex justify-between mb-6">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDownloaded ? 'bg-green-200 text-green-700' : 'bg-red-50 text-red-500'}`}>{isDownloaded ? <Check size={20}/> : <FileText size={20}/>}</div>
-                                    <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
-                                </div>
-                                <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
-                                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>{isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> Baixar PACOTE (ZIP)</>}</a>
-                            </div>
-                        );
-                    }) : (
-                        <div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte encontrado.</p></div>
-                    )}
+            <div key={f.id} className={`p-6 rounded-2xl shadow-sm transition-all duration-300 border group hover:-translate-y-1 ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100 hover:shadow-xl'}`}>
+                <div className="flex justify-between mb-6">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDownloaded ? 'bg-green-200 text-green-700' : 'bg-red-50 text-red-500'}`}>{isDownloaded ? <Check size={20}/> : <FileText size={20}/>}</div>
+                    <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
                 </div>
+                <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
+                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>{isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> Baixar PACOTE (ZIP)</>}</a>
             </div>
-          );
-      } else {
-          return <PosterFactory mode="local" currentUser={user} factoryType={factoryMode} />;
-      }
+          ); 
+      });
   };
 
   return (
@@ -631,7 +681,16 @@ const StoreLayout = ({ user, onLogout }) => {
             <div className="mt-auto px-4 w-full"><button onClick={onLogout} className="p-4 w-full flex justify-center hover:bg-red-600/20 text-slate-400 hover:text-red-500 rounded-2xl transition-all"><LogOut size={24}/></button></div>
         </div>
         <div className="flex-1 overflow-hidden relative">
-            {renderContent()}
+            {view === 'files' ? (
+                <div className="p-10 h-full overflow-y-auto">
+                    <div className="flex justify-between items-end mb-8"><h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center"><LayoutTemplate className="text-blue-600"/> Encartes da Matriz</h2><div className="relative w-96"><Search className="absolute left-4 top-3.5 text-slate-400" size={20}/><input type="text" placeholder="Pesquisar campanha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600"/></div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {renderFiles()}
+                    </div>
+                </div>
+            ) : (
+                <PosterFactory mode="local" currentUser={user} factoryType={factoryMode} />
+            )}
         </div>
     </div>
   );
