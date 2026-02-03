@@ -188,7 +188,7 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
 
             <div style={s.movable('mega_footer')} onMouseDown={(e) => handleMouseDown(e, 'mega_footer')}>
                 <div style={{ textAlign: 'center', width:'100%' }}>
-                    <p style={{ fontSize: '20px', fontFamily: fontMega, color: 'black', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '3px' }}>OFERTA VÁLIDA: {product.date}</p>
+                    <p style={{ fontSize: '20px', fontFamily: fontMega, color: 'black', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '3px' }}>OFERTA VÁLIDA PARA XX A XX/XX/XX {product.date}</p>
                     <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', fontStyle: 'italic', letterSpacing: '3px' }}>*Ou enquanto durar o estoque*</p>
                 </div>
             </div>
