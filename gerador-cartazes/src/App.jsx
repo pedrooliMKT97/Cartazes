@@ -14,15 +14,39 @@ import {
   Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder
 } from 'lucide-react';
 
-// === CONFIGURAÇÕES GERAIS ===
+// ============================================================================
+// 1. CONFIGURAÇÕES GERAIS E POSIÇÕES
+// ============================================================================
 const A4_WIDTH_PX = 794;
 const A4_HEIGHT_PX = 1123;
 
-const PORTRAIT_POS = { name: { x: 0, y: 220 }, price: { x: 0, y: 450 }, limit: { x: 0, y: 900 }, footer: { x: 0, y: 1000 } };
-const LANDSCAPE_POS = { name: { x: 0, y: 220 }, price: { x: 0, y: 350 }, limit: { x: 0, y: 620 }, footer: { x: 0, y: 700 } };
+const PORTRAIT_POS = { 
+    name: { x: 0, y: 220 }, 
+    price: { x: 0, y: 450 }, 
+    limit: { x: 0, y: 900 }, 
+    footer: { x: 0, y: 1000 } 
+};
 
-const MEGA_PORTRAIT_POS = { mega_name: { x: 0, y: 160 }, mega_offer: { x: 0, y: 340 }, mega_limit: { x: 0, y: 920 }, mega_footer: { x: 0, y: 1060 } };
-const MEGA_LANDSCAPE_POS = { mega_name: { x: 0, y: 140 }, mega_offer: { x: 0, y: 280 }, mega_limit: { x: 0, y: 680 }, mega_footer: { x: 0, y: 730 } };
+const LANDSCAPE_POS = { 
+    name: { x: 0, y: 220 }, 
+    price: { x: 0, y: 350 }, 
+    limit: { x: 0, y: 620 }, 
+    footer: { x: 0, y: 700 } 
+};
+
+const MEGA_PORTRAIT_POS = { 
+    mega_name: { x: 0, y: 160 }, 
+    mega_offer: { x: 0, y: 340 }, 
+    mega_limit: { x: 0, y: 920 }, 
+    mega_footer: { x: 0, y: 1060 } 
+};
+
+const MEGA_LANDSCAPE_POS = { 
+    mega_name: { x: 0, y: 140 }, 
+    mega_offer: { x: 0, y: 280 }, 
+    mega_limit: { x: 0, y: 680 }, 
+    mega_footer: { x: 0, y: 730 } 
+};
 
 const DEFAULT_DESIGN = {
   size: 'a4', orientation: 'portrait', bannerImage: null, backgroundImage: null, 
@@ -33,13 +57,27 @@ const DEFAULT_DESIGN = {
   positions: { ...PORTRAIT_POS, ...MEGA_PORTRAIT_POS }
 };
 
-// === UTILITÁRIOS ===
+// ============================================================================
+// 2. UTILITÁRIOS (Formatadores)
+// ============================================================================
 const formatDateSafe = (d) => { try { return String(d).split('-').reverse().join('/'); } catch (e) { return d; } };
 const formatTimeSafe = (d) => { try { return new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
 const sanitizeFileName = (n) => String(n||'cartaz').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_").toLowerCase();
 const formatExcelPrice = (v) => { try { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? v : n.toFixed(2).replace('.', ','); } catch (e) { return v; } };
 
-// === COMPONENTE: POSTER PADRÃO ===
+// ============================================================================
+// 3. COMPONENTES VISUAIS (Banners e Cartazes)
+// ============================================================================
+
+// Balão do Tutorial
+const TutorialTip = ({ text, onClick, style }) => (
+  <div onClick={onClick} className="absolute z-50 bg-red-600 text-yellow-300 font-black text-xs uppercase px-4 py-2 rounded-lg shadow-xl animate-bounce cursor-pointer border-2 border-yellow-300 transform -translate-x-1/2 left-1/2 hover:scale-110 transition-transform flex items-center justify-center" style={{ bottom: '100%', marginBottom: '10px', whiteSpace: 'nowrap', ...style }}>
+    {text}
+    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-red-600"></div>
+  </div>
+);
+
+// Componente: Poster Padrão
 const Poster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
   if (!product) return null;
   const d = { ...DEFAULT_DESIGN, ...design, positions: { ...(design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS), ...(design?.positions || {}) } };
@@ -49,11 +87,10 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const lSpacing = d.letterSpacing || 0;
 
-  // === CONFIGURAÇÃO DE AJUSTE FINO (MEXA AQUI) ===
-  // Aqui você define tamanhos diferentes para Vertical (portrait) e Horizontal (landscape)
+  // === CONFIGURAÇÃO DE AJUSTE FINO (MEXA AQUI SE PRECISAR) ===
   const oldPriceConfig = d.orientation === 'portrait' 
-    ? { size: '40px', margin: '-15px' }  // <--- VERTICAL: Maior e mais perto
-    : { size: '30px', margin: '-60px' };  // <--- HORIZONTAL: Menor e mais afastado (para não sobrepor)
+    ? { size: '40px', margin: '-15px' }  // VERTICAL
+    : { size: '30px', margin: '-5px' };   // HORIZONTAL
 
   const handleMouseDown = (e, key) => {
       if (!isEditable) return; e.preventDefault(); const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
@@ -70,7 +107,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     
-    // === APLICANDO A CONFIGURAÇÃO DINÂMICA ===
+    // Configuração Dinâmica do Preço "De"
     oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, zIndex: 6 }, 
     oldPriceText: { fontSize: oldPriceConfig.size, fontWeight: 'bold', color: '#555' },      
 
@@ -100,7 +137,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   );
 };
 
-// === COMPONENTE: MEGA 10 ===
+// Componente: Mega 10
 const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
     if (!product) return null;
     const isPortrait = design.orientation === 'portrait';
@@ -159,7 +196,10 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
     );
 };
 
-// === FACTORY & LOGIC ===
+// ============================================================================
+// 4. LÓGICA DO SISTEMA (Factory, Admin, Layout)
+// ============================================================================
+
 const usePresets = (setDesign) => {
   const [presets, setPresets] = useState([]);
   useEffect(() => { fetchPresets(); }, []);
@@ -175,11 +215,14 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'OFERTA VÁLIDA: XX A XX/XX/XX', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'OFERTA VÁLIDA:', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   const [autoLoaded, setAutoLoaded] = useState(false);
+  
+  // STATE PARA O TUTORIAL
+  const [tutorialStep, setTutorialStep] = useState(0); 
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
@@ -318,13 +361,35 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                 </h2>
             </div>
             <div className="flex border-b bg-slate-50">
-                <button onClick={()=>setActiveTab('content')} className={`flex-1 py-4 font-bold text-sm transition-colors ${activeTab==='content'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}>1. Dados</button>
-                <button onClick={()=>setActiveTab('design')} className={`flex-1 py-4 font-bold text-sm transition-colors ${activeTab==='design'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}>2. Visual</button>
+                {/* ABA DE DADOS (COM TUTORIAL PASSO 2 -> 3) */}
+                <button 
+                  onClick={()=>{
+                    setActiveTab('content'); 
+                    if(mode === 'local' && tutorialStep === 2) setTutorialStep(3); 
+                  }} 
+                  className={`flex-1 py-4 font-bold text-sm transition-colors relative ${activeTab==='content'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  1. Dados
+                  {mode === 'local' && tutorialStep === 2 && <TutorialTip text="AGORA VOLTE" onClick={()=>setTutorialStep(3)}/>}
+                </button>
+                
+                {/* ABA DE VISUAL (COM TUTORIAL PASSO 0 -> 1) */}
+                <button 
+                  onClick={()=>{
+                    setActiveTab('design');
+                    if(mode === 'local' && tutorialStep === 0) setTutorialStep(1);
+                  }} 
+                  className={`flex-1 py-4 font-bold text-sm transition-colors relative ${activeTab==='design'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  2. Visual
+                  {mode === 'local' && tutorialStep === 0 && <TutorialTip text="PRIMEIRO PASSO" onClick={()=>setTutorialStep(1)}/>}
+                </button>
             </div>
+            
             <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                 {activeTab === 'content' ? (
-                    <div className="space-y-5">
-                        <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center">
+                    <div className="space-y-5 relative">
+                        <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center" onClick={() => { if(mode === 'local' && tutorialStep === 3) setTutorialStep(4); }}>
                             <h3 className="text-blue-900 font-bold text-sm mb-3">GERAÇÃO EM MASSA</h3>
                             <label className="block w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-lg cursor-pointer text-xs font-bold uppercase hover:bg-blue-50 hover:border-blue-500 transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
                             {mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocalZip} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all flex items-center justify-center gap-2">{isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>} {isGenerating ? `Gerando ZIP...` : `Baixar ZIP (${bulkProducts.length})`}</button>)}
@@ -332,7 +397,15 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                         </div>
                         
                         <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label><textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-20"/></div>
+                        
+                        {/* INPUT COM TUTORIAL EMBUTIDO */}
+                        <div className="relative" onClick={() => { if(mode === 'local' && tutorialStep === 3) setTutorialStep(4); }}>
+                            {mode === 'local' && tutorialStep === 3 && (
+                                <TutorialTip text="PREENCHA OS DADOS" onClick={()=>setTutorialStep(4)}/>
+                            )}
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label>
+                            <textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-20"/>
+                        </div>
                         
                         {factoryType === 'mega10' ? (
                             <>
@@ -353,15 +426,28 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* LISTA DE PRESETS COM ALTURA AUMENTADA PARA NÃO ROLAR TANTO */}
-                        <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
-                            <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2">
-                                <div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>
-                                {mode === 'admin' && (<div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div>)}
-                            </div>
+                        {/* LISTA DE PRESETS COM TUTORIAL PASSO 1 -> 2 */}
+                        <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm relative">
+                            {mode === 'local' && tutorialStep === 1 && (
+                                <TutorialTip text="ESCOLHA UM PRESET" onClick={()=>setTutorialStep(2)} style={{top: '40px', left: '50%'}}/>
+                            )}
+
+                            <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>{mode === 'admin' && (<div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div>)}</div>
+                            
                             {presets.length > 0 ? (
-                                <div className="space-y-1"> {/* REMOVIDO max-h-96 e overflow-y-auto */}
-                                    {presets.map((p,i)=>(<div key={i} onClick={()=>loadPreset(p)} className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"><span className="text-xs font-bold text-slate-700">{p.name}</span>{mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}</div>))}
+                                <div className="space-y-1"> 
+                                    {presets.map((p,i)=>(
+                                        <div key={i} 
+                                             onClick={()=>{ 
+                                                 loadPreset(p); 
+                                                 if(mode === 'local' && tutorialStep === 1) setTutorialStep(2); 
+                                             }} 
+                                             className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"
+                                        >
+                                            <span className="text-xs font-bold text-slate-700">{p.name}</span>
+                                            {mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}
+                                        </div>
+                                    ))}
                                 </div>
                             ) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
                         </div>
