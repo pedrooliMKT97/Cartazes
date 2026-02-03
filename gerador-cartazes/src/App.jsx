@@ -63,15 +63,19 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     nameText: { fontSize: `${60 * scName}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.2', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft:'20px', paddingRight:'20px', letterSpacing: `${lSpacing}px` },
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
-    oldPriceWrapper: { position: 'relative', marginBottom: '-30px', zIndex: 6 },
-    oldPriceText: { fontSize: '32px', fontWeight: 'bold', color: '#555' },
+    
+    // === ALTERAÇÕES AQUI ===
+    oldPriceWrapper: { position: 'relative', marginBottom: '-15px', zIndex: 6 }, // Margem alterada para -15px
+    oldPriceText: { fontSize: '55px', fontWeight: 'bold', color: '#555' },      // Fonte alterada para 30px
+    // =======================
+
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
-    currency: { fontSize: `${50 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
+    currency: { fontSize: `${45 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
     priceBig: { fontSize: `${300 * scPrice}px`, fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
     sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
-    cents: { fontSize: `${100 * scPrice}px`, fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
+    cents: { fontSize: `${75 * scPrice}px`, fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
     unitBadge: { fontSize: `${30 * scPrice}px`, fontWeight: 'bold', textTransform: 'uppercase', color: '#333', backgroundColor: 'transparent', padding: '0', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center' },
-    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ddd', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgba(255,255,255,0.8)', borderRadius:'8px', pointerEvents: 'none' },
+    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ffffff', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgb(255, 255, 255)', borderRadius:'8px', pointerEvents: 'none' },
     footerText: { fontSize: '18px', fontWeight: 'bold', color: d.nameColor, textTransform: 'uppercase', pointerEvents: 'none', letterSpacing: '2px' }
   };
 
