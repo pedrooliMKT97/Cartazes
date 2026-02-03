@@ -53,7 +53,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   // Aqui você define tamanhos diferentes para Vertical (portrait) e Horizontal (landscape)
   const oldPriceConfig = d.orientation === 'portrait' 
     ? { size: '40px', margin: '-15px' }  // <--- VERTICAL: Maior e mais perto
-    : { size: '25px', margin: '-55px' };  // <--- HORIZONTAL: Menor e mais afastado (para não sobrepor)
+    : { size: '30px', margin: '-60px' };  // <--- HORIZONTAL: Menor e mais afastado (para não sobrepor)
 
   const handleMouseDown = (e, key) => {
       if (!isEditable) return; e.preventDefault(); const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
