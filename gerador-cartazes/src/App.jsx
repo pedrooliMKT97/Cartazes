@@ -109,7 +109,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     
     // Configuração Dinâmica do Preço "De"
     oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, zIndex: 6 }, 
-    oldPriceText: { fontSize: oldPriceConfig.size, fontWeight: 'bold', color: '#555' },      
+    oldPriceText: { fontSize: '55px', fontWeight: 'bold', color: '#555' },      
 
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
     currency: { fontSize: `${45 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
@@ -117,7 +117,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     sideColumn: { display: 'flex', flexDirection: 'column', marginLeft: '10px', marginTop: `${55 * scPrice}px`, alignItems: 'flex-start', gap: `${15 * scPrice}px` },
     cents: { fontSize: `${75 * scPrice}px`, fontWeight: '900', lineHeight: 0.8, marginBottom: '0px' },
     unitBadge: { fontSize: `${30 * scPrice}px`, fontWeight: 'bold', textTransform: 'uppercase', color: '#333', backgroundColor: 'transparent', padding: '0', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center' },
-    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ddd', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgba(255,255,255,0.8)', borderRadius:'8px', pointerEvents: 'none' },
+    limitContent: { fontSize: '22px', fontWeight: 'bold', color: '#555', textTransform: 'uppercase', borderTop: '2px solid #ffffff', paddingTop: '5px', paddingLeft: '20px', paddingRight: '20px', backgroundColor:'rgb(255, 255, 255)', borderRadius:'8px', pointerEvents: 'none' },
     footerText: { fontSize: '18px', fontWeight: 'bold', color: d.nameColor, textTransform: 'uppercase', pointerEvents: 'none', letterSpacing: '2px' }
   };
 
@@ -188,7 +188,8 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
 
             <div style={s.movable('mega_footer')} onMouseDown={(e) => handleMouseDown(e, 'mega_footer')}>
                 <div style={{ textAlign: 'center', width:'100%' }}>
-                    <p style={{ fontSize: '20px', fontFamily: fontMega, color: 'black', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '3px' }}>OFERTA VÁLIDA PARA XX A XX/XX/XX {product.date}</p>
+                    {/* AQUI ESTÁ A MUDANÇA SOLICITADA */}
+                    <p style={{ fontSize: '20px', fontFamily: fontMega, color: 'black', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '3px' }}>OFERTA VÁLIDA PARA {product.date}</p>
                     <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', fontStyle: 'italic', letterSpacing: '3px' }}>*Ou enquanto durar o estoque*</p>
                 </div>
             </div>
@@ -215,7 +216,8 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'OFERTA VÁLIDA:', footer: '' });
+  // ATUALIZAÇÃO NO ESTADO INICIAL DO PRODUTO PARA NÃO TER PREFIXO DUPLICADO
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
