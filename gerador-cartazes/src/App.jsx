@@ -87,13 +87,13 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const lSpacing = d.letterSpacing || 0;
 
-  // === AQUI ESTÁ A MÁGICA PARA O "DE" (Horizontal) ===
+  // === CONFIGURAÇÃO DE AJUSTE FINO (CORRIGIDO PARA NÃO SOBREPOR) ===
   const oldPriceConfig = d.orientation === 'portrait' 
-    ? { size: '55px', margin: '-15px', top: '0px' }  // VERTICAL (Padrão)
-    : { size: '30px', margin: '-100px', top: '-40px' }; // HORIZONTAL (Ajustado)
-    // top: '-40px' -> Sobe o "De" sem mexer no vermelho
-    // margin: '-100px' -> Mantém o vermelho colado onde você gostou
-    // size: '30px' -> Diminui o tamanho da fonte
+    ? { size: '55px', margin: '-15px', top: '0px' }  // VERTICAL
+    : { size: '30px', margin: '-100px', top: '-50px' }; // HORIZONTAL
+    // margin: -100px (Mantém o vermelho no lugar que você quer)
+    // top: -50px (Joga o "De" para cima para sair da frente do vermelho)
+    // size: 30px (Diminui um pouco para ficar elegante)
 
   const handleMouseDown = (e, key) => {
       if (!isEditable) return; e.preventDefault(); const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
@@ -110,7 +110,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     
-    // APLICANDO AS 3 VARIÁVEIS AQUI
+    // Configurações aplicadas aqui
     oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, top: oldPriceConfig.top, zIndex: 6 }, 
     oldPriceText: { fontSize: oldPriceConfig.size, fontWeight: 'bold', color: '#555' },      
 
@@ -218,7 +218,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
@@ -338,7 +338,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
         { id: 'b8', file: 'frutadobra.png', color: '#16a34a' }, 
         { id: 'b9', file: 'carne.png', color: '#7f1d1d' }, 
         { id: 'b10', file: 'carnedobra.png', color: '#7f1d1d' }, 
-        { id: 'b11', file: 'fechames.png', color: 'rgb(4, 14, 31)' }, 
+        { id: 'b11', file: 'fechames.png', color: '#1e293b' }, 
         { id: 'b12', file: 'fechamesdobra.png', color: '#1e293b' }, 
         { id: 'b13', file: 'nopontoleve.png', color: '#06b6d4' }, 
         { id: 'b14', file: 'nopontolevedobra.png', color: '#06b6d4' }, 
@@ -507,295 +507,6 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
             }
         </div></div>
         <div style={{position:'absolute', top:0, left:'-9999px'}}>
-            {bulkProducts.map((p, i) => (
-                factoryType === 'mega10' ? 
-                <MegaPoster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} /> 
-                :
-                <Poster key={i} id={`local-ghost-${i}`} product={p} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} />
-            ))}
-            {factoryType === 'mega10' ? 
-                <MegaPoster id="single-ghost" product={product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} />
-                :
-                <Poster id="single-ghost" product={product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} />
-            }
-        </div>
-    </div>
-  );
-};
-
-const AdminDashboard = ({ onLogout }) => {
-  const [allDownloads, setAllDownloads] = useState([]);
-  const [logs, setLogs] = useState([]); 
-  const [files, setFiles] = useState([]);
-  const [title, setTitle] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
-  const [showCampaignsModal, setShowCampaignsModal] = useState(false);
-  const [logFilter, setLogFilter] = useState('all'); 
-  const [selectedDetail, setSelectedDetail] = useState(null);
-  const [adminTab, setAdminTab] = useState('factory'); // NOVO: Controla aba (Factory ou Upload)
-  const [uploadFile, setUploadFile] = useState(null);
-  const [factoryMode, setFactoryMode] = useState('default'); 
-  const STORES = ['loja01', 'loja02', 'loja03', 'loja04', 'loja05'];
-
-  useEffect(() => { fetchData(); }, []);
-  const fetchData = async () => { 
-      try { 
-          const { data: f } = await supabase.from('shared_files').select('*').order('created_at', { ascending: false }); 
-          if(f) setFiles(f); 
-          const { data: d } = await supabase.from('downloads').select('*'); 
-          if(d) setAllDownloads(d);
-          const { data: l } = await supabase.from('poster_logs').select('*').order('created_at', { ascending: false }).limit(100);
-          if(l) setLogs(l);
-      } catch(e){} 
-  };
-  
-  const handleDelete = async (id) => { if(confirm("Apagar encarte?")) { await supabase.from('shared_files').delete().eq('id', id); fetchData(); }};
-  const clearHistory = async () => { if(!confirm("Limpar histórico?")) return; try { await supabase.from('poster_logs').delete().neq('id', 0); fetchData(); } catch(e){} };
-  const checkDownload = (store, fileId) => { return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store)); };
-
-  const handleDirectUpload = async () => {
-      if (!uploadFile || !title || !expiry) return alert("Preencha título, validade e escolha o arquivo!");
-      setProcessing(true);
-      try {
-          const fileExt = uploadFile.name.split('.').pop();
-          const fileName = `${sanitizeFileName(title)}_${Date.now()}.${fileExt}`;
-          
-          const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, uploadFile);
-          if (upErr) throw upErr;
-          
-          const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          
-          await supabase.from('shared_files').insert([{ 
-              title, 
-              expiry_date: expiry, 
-              file_url: publicUrl, 
-              products_json: [], // Vazio pois é upload direto
-              design_json: {} 
-          }]);
-          
-          alert("Arquivo enviado com sucesso!"); 
-          setTitle(''); setExpiry(''); setUploadFile(null); fetchData();
-      } catch(e) { alert("Erro no upload: "+e.message); }
-      setProcessing(false);
-  };
-
-  const send = async () => {
-      if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
-      setProcessing(true); setProgress(0);
-      const zip = new JSZip();
-      const docUnified = new jsPDF({ orientation: factoryData.design.orientation, unit: 'mm', format: factoryData.design.size });
-
-      try {
-          const { bulkProducts, design } = factoryData;
-          for(let i=0; i<bulkProducts.length; i++) {
-              const el = document.getElementById(`admin-ghost-${i}`);
-              if(el) { 
-                  const c = await html2canvas(el, {scale: 1.5, useCORS:true, scrollY: 0}); 
-                  const imgData = c.toDataURL('image/jpeg', 0.8);
-                  const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
-                  const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
-                  pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
-                  zip.file(`${sanitizeFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
-                  if (i > 0) docUnified.addPage();
-                  const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
-                  docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
-              }
-              setProgress(Math.round(((i+1)/bulkProducts.length)*100));
-              await new Promise(r=>setTimeout(r,10));
-          }
-          zip.file("#ofertaspack.pdf", docUnified.output('blob'));
-          const zipContent = await zip.generateAsync({type:"blob"});
-          const safeTitle = sanitizeFileName(title) || `Campanha_${Date.now()}`;
-          const fileName = `${safeTitle}.zip`; 
-          const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
-          if(upErr) throw upErr;
-          const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
-          alert("Sucesso!"); setTitle(''); setExpiry(''); fetchData();
-      } catch(e) { alert("Erro: "+e.message); }
-      setProcessing(false);
-  };
-
-  const filteredLogs = logFilter === 'all' ? logs : logs.filter(l => l.store_email && l.store_email.includes(logFilter));
-
-  return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
-        <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
-            <div className="flex items-center gap-6">
-                <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Layers className="text-blue-400"/> PAINEL ADMIN</h1>
-                <div className="flex bg-slate-800 rounded-lg p-1 gap-1">
-                    <button onClick={()=>setAdminTab('factory')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='factory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <Settings size={14}/> GERADOR
-                    </button>
-                    <button onClick={()=>setAdminTab('upload')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='upload' ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <FileUp size={14}/> UPLOAD DIRETO
-                    </button>
-                </div>
-            </div>
-
-            {adminTab === 'factory' && (
-                <div className="flex bg-slate-800 rounded-lg p-1">
-                    <button onClick={() => setFactoryMode('default')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'default' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}>PADRÃO</button>
-                    <button onClick={() => setFactoryMode('mega10')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'mega10' ? 'bg-yellow-500 text-slate-900' : 'text-slate-400 hover:text-white'}`}>MEGA 10</button>
-                </div>
-            )}
-
-            <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
-        </div>
-        
-        {showCampaignsModal && ( 
-            <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                    <div className="bg-slate-900 p-4 flex justify-between items-center">
-                        <h3 className="text-white font-bold text-lg uppercase flex items-center gap-2"><Layers size={20} className="text-purple-400"/> Gerenciar Todas as Campanhas</h3>
-                        <button onClick={()=>setShowCampaignsModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={24}/></button>
-                    </div>
-                    <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
-                        <div className="grid grid-cols-1 gap-3">
-                            {files.length === 0 ? <p className="text-center text-slate-400 mt-10">Nenhuma campanha encontrada.</p> : files.map(f => (
-                                <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-slate-800 text-lg">{f.title}</h4>
-                                        <p className="text-sm text-slate-500 mt-1 flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setSelectedDetail(f)} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold hover:bg-blue-200 flex items-center gap-2"><Eye size={16}/> Detalhes</button>
-                                        <button onClick={()=>handleDelete(f.id)} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold hover:bg-red-200 flex items-center gap-2"><Trash2 size={16}/> Excluir</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div> 
-        )}
-
-        {selectedDetail && ( 
-            <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                    <div className="bg-slate-900 p-4 flex justify-between items-center">
-                        <h3 className="text-white font-bold text-sm uppercase flex items-center gap-2"><FileText size={16} className="text-blue-400"/> Status de Entrega</h3>
-                        <button onClick={()=>setSelectedDetail(null)} className="text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
-                    </div>
-                    <div className="p-6">
-                        <h4 className="font-bold text-slate-800 text-lg mb-6 leading-tight border-b pb-4">{selectedDetail.title}</h4>
-                        <div className="space-y-3">
-                            {STORES.map((store, index) => { 
-                                const isDownloaded = checkDownload(store, selectedDetail.id); 
-                                return (
-                                    <div key={index} className={`flex justify-between items-center p-3 rounded-lg border ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isDownloaded ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</div>
-                                            <span className={`font-bold uppercase ${isDownloaded ? 'text-green-800' : 'text-slate-400'}`}>{store}</span>
-                                        </div>
-                                        {isDownloaded ? <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Recebido</span> : <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Clock size={14}/> Pendente</span>}
-                                    </div>
-                                ); 
-                            })}
-                        </div>
-                    </div>
-                </div>
-            </div> 
-        )}
-
-        <div className="flex-1 flex overflow-hidden">
-            <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                {/* ÁREA DE PUBLICAÇÃO (Muda conforme a aba) */}
-                <div className="p-6 bg-white border-b flex flex-col gap-4 shadow-sm z-30">
-                    <div className="flex gap-3 items-end">
-                        <div className="flex-1">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label>
-                            <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/>
-                        </div>
-                        <div className="w-36">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label>
-                            <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
-                        </div>
-                    </div>
-                    
-                    {adminTab === 'upload' && (
-                        <div className="w-full">
-                            <label className="block w-full py-8 bg-green-50 border-2 border-dashed border-green-300 text-green-700 rounded-xl cursor-pointer hover:bg-green-100 transition-all text-center">
-                                <FileUp className="mx-auto mb-2" size={32}/>
-                                <span className="font-bold text-sm block">CLIQUE PARA SELECIONAR PDF ou ZIP</span>
-                                <span className="text-xs opacity-70 block mt-1">{uploadFile ? uploadFile.name : 'Nenhum arquivo selecionado'}</span>
-                                <input type="file" className="hidden" onChange={(e) => setUploadFile(e.target.files[0])} accept=".pdf,.zip,.rar" />
-                            </label>
-                        </div>
-                    )}
-
-                    <button onClick={adminTab === 'factory' ? send : handleDirectUpload} disabled={processing} className={`w-full py-4 font-bold rounded-xl shadow-lg text-white flex items-center justify-center gap-2 transition-all ${processing ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-1'} ${adminTab === 'factory' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>
-                        {processing ? <Loader className="animate-spin"/> : (adminTab === 'factory' ? <><Upload size={20}/> PUBLICAR CARTAZES</> : <><CheckCircle size={20}/> ENVIAR ARQUIVO</>)}
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-hidden relative bg-slate-100">
-                    {adminTab === 'factory' ? (
-                        <PosterFactory mode="admin" onAdminReady={setFactoryData} currentUser={{email:'admin'}} factoryType={factoryMode} />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10 text-center">
-                            <Folder size={64} className="mb-4 text-green-200"/>
-                            <h3 className="text-xl font-bold text-slate-600">Modo de Upload Direto</h3>
-                            <p className="max-w-xs mt-2 text-sm">Use este modo para enviar PDFs ou ZIPs prontos (feitos no Photoshop/Canva) diretamente para as lojas.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
-                {/* PAINEL CAMPANHAS */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex justify-between items-center">
-                    <div>
-                        <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas</h3>
-                        <p className="text-sm text-slate-400 mt-1">{files.length} ativas.</p>
-                    </div>
-                    <button onClick={() => setShowCampaignsModal(true)} className="px-5 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg hover:bg-purple-700 flex items-center gap-2">
-                        <Sliders size={16}/> GERENCIAR
-                    </button>
-                </div>
-
-                {/* PAINEL HISTÓRICO */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex justify-between items-center">
-                            <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Clock className="text-orange-500"/> Histórico</h3>
-                            <div className="flex gap-2">
-                                <button onClick={clearHistory} className="text-xs text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg font-bold flex items-center gap-1"><Trash2 size={12}/> LIMPAR</button>
-                                <button onClick={fetchData} className="text-xs text-blue-500 hover:bg-blue-50 px-3 py-2 rounded-lg font-bold flex items-center gap-1"><RefreshCcw size={12}/> ATUALIZAR</button>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                            <Filter size={16} className="text-slate-400"/>
-                            <span className="text-xs font-bold text-slate-500 uppercase">Filtrar:</span>
-                            <select value={logFilter} onChange={(e) => setLogFilter(e.target.value)} className="bg-transparent font-bold text-slate-700 outline-none flex-1">
-                                <option value="all">Todas as Lojas</option>
-                                {STORES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                                <tr><th className="p-3">Horário</th><th className="p-3">Loja</th><th className="p-3">Produto</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredLogs.length === 0 ? <tr><td colSpan="3" className="p-4 text-center text-slate-400">Vazio.</td></tr> : filteredLogs.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50">
-                                        <td className="p-3 font-mono text-xs text-slate-500">{formatDateSafe(log.created_at.split('T')[0])} {formatTimeSafe(log.created_at)}</td>
-                                        <td className="p-3 font-bold text-slate-700 uppercase">{log.store_email ? log.store_email.split('@')[0] : 'Admin'}</td>
-                                        <td className="p-3 text-slate-600">{log.product_name}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div style={{position:'absolute', top:0, left:'-9999px'}}>
             {factoryData.bulkProducts.map((p,i) => (
                 factoryMode === 'mega10' ? 
                 <MegaPoster key={i} id={`admin-ghost-${i}`} product={p} design={factoryData.design} width={factoryData.design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={factoryData.design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} /> 
@@ -880,5 +591,3 @@ const App = () => {
 };
 
 export default App;
-
-
