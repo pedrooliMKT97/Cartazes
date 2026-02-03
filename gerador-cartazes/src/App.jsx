@@ -218,7 +218,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
@@ -338,7 +338,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
         { id: 'b8', file: 'frutadobra.png', color: '#16a34a' }, 
         { id: 'b9', file: 'carne.png', color: '#7f1d1d' }, 
         { id: 'b10', file: 'carnedobra.png', color: '#7f1d1d' }, 
-        { id: 'b11', file: 'fechames.png', color: '#1e293b' }, 
+        { id: 'b11', file: 'fechames.png', color: 'rgb(4, 14, 31)' }, 
         { id: 'b12', file: 'fechamesdobra.png', color: '#1e293b' }, 
         { id: 'b13', file: 'nopontoleve.png', color: '#06b6d4' }, 
         { id: 'b14', file: 'nopontolevedobra.png', color: '#06b6d4' }, 
