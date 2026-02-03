@@ -31,7 +31,7 @@ const LANDSCAPE_POS = {
     name: { x: 0, y: 220 }, 
     price: { x: 0, y: 350 }, 
     limit: { x: 0, y: 620 }, 
-    footer: { x: 0, y: 700 } 
+    footer: { x: 0, y: 760 } 
 };
 
 const MEGA_PORTRAIT_POS = { 
@@ -71,7 +71,7 @@ const formatExcelPrice = (v) => { try { const n = parseFloat(String(v).replace('
 
 // Balão do Tutorial
 const TutorialTip = ({ text, onClick, style }) => (
-  <div onClick={onClick} className="absolute z-50 bg-red-600 text-yellow-300 font-black text-xs uppercase px-4 py-2 rounded-lg shadow-xl animate-bounce cursor-pointer border-2 border-yellow-300 transform -translate-x-1/2 left-1/2 hover:scale-110 transition-transform flex items-center justify-center" style={{ bottom: '100%', marginBottom: '10px', whiteSpace: 'nowrap', ...style }}>
+  <div onClick={onClick} className="absolute z-50 bg-red-600 text-yellow-300 font-black text-xs uppercase px-4 py-3 leading-tight rounded-lg shadow-xl animate-bounce cursor-pointer border-2 border-yellow-300 transform -translate-x-1/2 left-1/2 hover:scale-110 transition-transform flex items-center justify-center" style={{ bottom: '100%', marginBottom: '12px', whiteSpace: 'nowrap', minHeight: '40px', ...style }}>
     {text}
     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-red-600"></div>
   </div>
@@ -87,10 +87,13 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const lSpacing = d.letterSpacing || 0;
 
-  // === CONFIGURAÇÃO DE AJUSTE FINO (MEXA AQUI SE PRECISAR) ===
+  // === AQUI ESTÁ A MÁGICA PARA O "DE" (Horizontal) ===
   const oldPriceConfig = d.orientation === 'portrait' 
-    ? { size: '40px', margin: '-15px' }  // VERTICAL
-    : { size: '30px', margin: '-5px' };   // HORIZONTAL
+    ? { size: '55px', margin: '-15px', top: '0px' }  // VERTICAL (Padrão)
+    : { size: '30px', margin: '-100px', top: '-40px' }; // HORIZONTAL (Ajustado)
+    // top: '-40px' -> Sobe o "De" sem mexer no vermelho
+    // margin: '-100px' -> Mantém o vermelho colado onde você gostou
+    // size: '30px' -> Diminui o tamanho da fonte
 
   const handleMouseDown = (e, key) => {
       if (!isEditable) return; e.preventDefault(); const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
@@ -107,9 +110,9 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     
-    // Configuração Dinâmica do Preço "De"
-    oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, zIndex: 6 }, 
-    oldPriceText: { fontSize: '55px', fontWeight: 'bold', color: '#555' },      
+    // APLICANDO AS 3 VARIÁVEIS AQUI
+    oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, top: oldPriceConfig.top, zIndex: 6 }, 
+    oldPriceText: { fontSize: oldPriceConfig.size, fontWeight: 'bold', color: '#555' },      
 
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
     currency: { fontSize: `${45 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
@@ -188,9 +191,8 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
 
             <div style={s.movable('mega_footer')} onMouseDown={(e) => handleMouseDown(e, 'mega_footer')}>
                 <div style={{ textAlign: 'center', width:'100%' }}>
-                    {/* AQUI ESTÁ A MUDANÇA SOLICITADA */}
                     <p style={{ fontSize: '20px', fontFamily: fontMega, color: 'black', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '3px' }}>OFERTA VÁLIDA PARA {product.date}</p>
-                    <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', fontStyle: 'italic', letterSpacing: '3px' }}>*Ou enquanto durar o estoque*</p>
+                    <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', fontStyle: 'italic', letterSpacing: '5px' }}>*Ou enquanto durar o estoque*</p>
                 </div>
             </div>
         </div>
@@ -216,7 +218,6 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  // ATUALIZAÇÃO NO ESTADO INICIAL DO PRODUTO PARA NÃO TER PREFIXO DUPLICADO
   const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '13,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
