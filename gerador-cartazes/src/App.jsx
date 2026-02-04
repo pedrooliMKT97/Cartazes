@@ -11,7 +11,8 @@ import {
   Image as ImageIcon, Layers, 
   CheckCircle, RefreshCcw, Sliders, Save, 
   Bookmark, Loader, LayoutTemplate, Move, 
-  Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder
+  Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder,
+  GraduationCap, Play // <--- ÍCONES NOVOS ADICIONADOS
 } from 'lucide-react';
 
 // ============================================================================
@@ -87,13 +88,9 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   const scPrice = (Number(d.priceScale) || 100) / 100;
   const lSpacing = d.letterSpacing || 0;
 
-  // === AQUI ESTÁ A MÁGICA PARA O "DE" (Horizontal) ===
   const oldPriceConfig = d.orientation === 'portrait' 
-    ? { size: '55px', margin: '-15px', top: '0px' }  // VERTICAL (Padrão)
-    : { size: '30px', margin: '-100px', top: '-40px' }; // HORIZONTAL (Ajustado)
-    // top: '-40px' -> Sobe o "De" sem mexer no vermelho
-    // margin: '-100px' -> Mantém o vermelho colado onde você gostou
-    // size: '30px' -> Diminui o tamanho da fonte
+    ? { size: '55px', margin: '-15px', top: '0px' } 
+    : { size: '30px', margin: '-100px', top: '-40px' };
 
   const handleMouseDown = (e, key) => {
       if (!isEditable) return; e.preventDefault(); const startX = e.clientX; const startY = e.clientY; const startPos = d.positions[key] || { x: 0, y: 0 };
@@ -109,11 +106,8 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     nameText: { fontSize: `${60 * scName}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.2', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft:'20px', paddingRight:'20px', letterSpacing: `${lSpacing}px` },
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
-    
-    // APLICANDO AS 3 VARIÁVEIS AQUI
     oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, top: oldPriceConfig.top, zIndex: 6 }, 
     oldPriceText: { fontSize: oldPriceConfig.size, fontWeight: 'bold', color: '#555' },      
-
     mainPriceRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: d.priceColor, lineHeight: 0.80, marginTop: '0px' },
     currency: { fontSize: `${45 * scPrice}px`, fontWeight: 'bold', marginTop: `${55 * scPrice}px`, marginRight: '10px' },
     priceBig: { fontSize: `${300 * scPrice}px`, fontWeight: '900', letterSpacing: '-12px', margin: 0, zIndex: 2, lineHeight: 0.85 },
@@ -200,6 +194,106 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
 };
 
 // ============================================================================
+// NOVO COMPONENTE: CAMINHO DO APRENDIZADO
+// ============================================================================
+const LearningPath = () => {
+    const [selectedVideo, setSelectedVideo] = useState(null);
+  
+    // --- LISTA DE VÍDEOS ---
+    const tutorials = [
+      { 
+        id: 1, 
+        title: "# 1 COMO CRIAR CARTAZ PADRÃO", 
+        thumb: "/assets/thumb-cartaz.png", 
+        youtubeId: "4374wDa90_E" // Troque pelo ID real
+      },
+      { 
+        id: 2, 
+        title: "#2 - COMO IMPRIMIR 2 POR FOLHA", 
+        thumb: "/assets/thumb-2por.png", 
+        youtubeId: "vNSrtSsKeLQ" 
+      },
+      { 
+        id: 3, 
+        title: "EM BREVE", 
+        thumb: "/assets/thumb-print.png", 
+        youtubeId: "dQw4w9WgXcQ" 
+      },
+        { 
+        id: 4, 
+        title: "EM BREVE", 
+        thumb: "/assets/thumb-mega.png", 
+        youtubeId: "dQw4w9WgXcQ" 
+      },
+    ];
+  
+    return (
+      <div className="p-10 h-full overflow-y-auto bg-slate-100">
+        <div className="mb-8">
+          <h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center">
+            <GraduationCap className="text-blue-600" size={32}/> 
+            Caminho do Aprendizado
+          </h2>
+          <p className="text-slate-500 mt-2">Assista aos tutoriais para dominar a ferramenta.</p>
+        </div>
+  
+        {/* GRADE DE VÍDEOS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+          {tutorials.map((item) => (
+            <div 
+              key={item.id} 
+              onClick={() => setSelectedVideo(item.youtubeId)}
+              className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+            >
+              {/* THUMBNAIL */}
+              <div className="relative aspect-video bg-slate-800 flex items-center justify-center overflow-hidden">
+                <img 
+                  src={item.thumb} 
+                  alt={item.title} 
+                  className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity"
+                  onError={(e) => {e.target.src = 'https://via.placeholder.com/640x360?text=VIDEO';}}
+                />
+                <div className="absolute w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white group-hover:scale-110 transition-transform">
+                  <Play fill="white" className="text-white ml-1" size={24}/>
+                </div>
+              </div>
+              {/* TEXTO */}
+              <div className="p-5">
+                <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-wider">Assistir Aula</p>
+              </div>
+            </div>
+          ))}
+        </div>
+  
+        {/* MODAL DE VÍDEO */}
+        {selectedVideo && (
+          <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedVideo(null)}>
+            <div className="w-full max-w-5xl bg-black rounded-2xl overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+              <button 
+                onClick={() => setSelectedVideo(null)}
+                className="absolute top-4 right-4 text-white/50 hover:text-white bg-black/50 hover:bg-red-600 rounded-full p-2 transition-all z-10"
+              >
+                <X size={24}/>
+              </button>
+              <div className="aspect-video w-full">
+                <iframe 
+                  width="100%" height="100%" 
+                  src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`} 
+                  title="YouTube video player" frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+};
+
+// ============================================================================
 // 4. LÓGICA DO SISTEMA (Factory, Admin, Layout)
 // ============================================================================
 
@@ -229,19 +323,24 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
+  
+  // CORREÇÃO: Reseta o autoLoaded quando muda o tipo de fábrica
+  useEffect(() => {
+    setAutoLoaded(false);
+  }, [factoryType]);
+
+  // CORREÇÃO DO LOOP INFINITO NOS PRESETS
   useEffect(() => { 
-      if (presets.length > 0) {
-          let targetName = 'PADRÃO VERTICAL';
-          if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
-          
-          const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
-          if (p && !autoLoaded) { 
-              loadPreset(p); 
-              setAutoLoaded(true); 
-          } else if (p && factoryType === 'mega10') {
-              loadPreset(p);
-          }
-      }
+    if (presets.length > 0 && !autoLoaded) {
+        let targetName = 'PADRÃO VERTICAL';
+        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
+        
+        const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
+        if (p) { 
+            loadPreset(p); 
+            setAutoLoaded(true); 
+        }
+    }
   }, [presets, factoryType, autoLoaded]);
 
   const handleExcel = (e) => { 
@@ -808,6 +907,7 @@ const AdminDashboard = ({ onLogout }) => {
 };
 
 const StoreLayout = ({ user, onLogout }) => {
+  // Views possíveis: 'files', 'learning', 'factory'
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
   const [myDownloads, setMyDownloads] = useState([]);
@@ -831,7 +931,7 @@ const StoreLayout = ({ user, onLogout }) => {
                     <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
                 </div>
                 <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
-                <a href={f.file_url} target="_blank" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>{isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> Baixar PACOTE (ZIP)</>}</a>
+                <a href={f.file_url} target="_blank" rel="noreferrer" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>{isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> Baixar PACOTE (ZIP)</>}</a>
             </div>
           ); 
       });
@@ -839,26 +939,82 @@ const StoreLayout = ({ user, onLogout }) => {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
+        {/* SIDEBAR LATERAL */}
         <div className="w-24 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center py-8 text-white z-50 shadow-2xl">
             <div className="mb-10 p-3 bg-white/10 rounded-2xl backdrop-blur-sm"><ImageIcon className="text-white w-8 h-8"/></div>
+            
             <div className="space-y-6 flex flex-col w-full px-4">
-                <button onClick={()=>setView('files')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='files'?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}><LayoutTemplate size={24}/><span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Matriz</span></button>
-                <button onClick={()=>{setView('factory'); setFactoryMode('default');}} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory' && factoryMode==='default' ?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}><Layers size={24}/><span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Padrão</span></button>
-                <button onClick={()=>{setView('factory'); setFactoryMode('mega10');}} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory' && factoryMode==='mega10' ?'bg-yellow-500 text-slate-900 shadow-lg scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}><Star size={24}/><span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Mega 10</span></button>
+                {/* Botão Matriz (Arquivos) */}
+                <button onClick={()=>setView('files')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='files'?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    <LayoutTemplate size={24}/>
+                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Matriz</span>
+                </button>
+
+                {/* Botão Aprenda (Novo) */}
+                <button onClick={()=>setView('learning')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='learning'?'bg-purple-600 shadow-lg scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    <GraduationCap size={24}/>
+                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Aprenda</span>
+                </button>
+
+                {/* Separador */}
+                <div className="h-px w-full bg-white/10 my-2"></div>
+
+                {/* Botão Fábrica Padrão */}
+                <button onClick={()=>{setView('factory'); setFactoryMode('default');}} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory' && factoryMode==='default' ?'bg-blue-500 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    <Layers size={24}/>
+                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Padrão</span>
+                </button>
+
+                {/* Botão Fábrica Mega 10 */}
+                <button onClick={()=>{setView('factory'); setFactoryMode('mega10');}} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory' && factoryMode==='mega10' ?'bg-yellow-500 text-slate-900 shadow-lg scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    <Star size={24}/>
+                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Mega 10</span>
+                </button>
             </div>
-            <div className="mt-auto px-4 w-full"><button onClick={onLogout} className="p-4 w-full flex justify-center hover:bg-red-600/20 text-slate-400 hover:text-red-500 rounded-2xl transition-all"><LogOut size={24}/></button></div>
+
+            <div className="mt-auto px-4 w-full">
+                <button onClick={onLogout} className="p-4 w-full flex justify-center hover:bg-red-600/20 text-slate-400 hover:text-red-500 rounded-2xl transition-all">
+                    <LogOut size={24}/>
+                </button>
+            </div>
         </div>
+
+        {/* ÁREA DE CONTEÚDO PRINCIPAL */}
         <div className="flex-1 overflow-hidden relative">
-            {view === 'files' ? (
+            
+            {/* VIEW 1: ARQUIVOS/MATRIZ */}
+            {view === 'files' && (
                 <div className="p-10 h-full overflow-y-auto">
-                    <div className="flex justify-between items-end mb-8"><h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center"><LayoutTemplate className="text-blue-600"/> Encartes da Matriz</h2><div className="relative w-96"><Search className="absolute left-4 top-3.5 text-slate-400" size={20}/><input type="text" placeholder="Pesquisar campanha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600"/></div></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="flex justify-between items-end mb-8">
+                        <h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center">
+                            <LayoutTemplate className="text-blue-600"/> Encartes da Matriz
+                        </h2>
+                        <div className="relative w-96">
+                            <Search className="absolute left-4 top-3.5 text-slate-400" size={20}/>
+                            <input type="text" placeholder="Pesquisar campanha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600"/>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
                         {renderFiles()}
                     </div>
                 </div>
-            ) : (
-                <PosterFactory mode="local" currentUser={user} factoryType={factoryMode} />
             )}
+
+            {/* VIEW 2: APRENDIZADO (NOVO) */}
+            {view === 'learning' && (
+                <LearningPath />
+            )}
+
+            {/* VIEW 3: FÁBRICA (PADRÃO OU MEGA 10) */}
+            {view === 'factory' && (
+                <PosterFactory 
+                    key={factoryMode} // <--- ISSO RESOLVE A TELA BRANCA AO TROCAR DE MODO
+                    mode="local" 
+                    currentUser={user} 
+                    factoryType={factoryMode} 
+                />
+            )}
+
         </div>
     </div>
   );
