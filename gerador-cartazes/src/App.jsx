@@ -336,7 +336,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
         
         // --- AQUI ESTÁ A MUDANÇA ---
         // Antes estava: if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 V2'; 
+        if (factoryType === 'mega10') targetName = 'MEGA 10 PADRÃO'; 
         // ---------------------------
 
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
