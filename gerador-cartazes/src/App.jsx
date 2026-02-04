@@ -454,7 +454,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
     ] 
   };
 
-  return (
+return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
         <div className="w-[400px] bg-white h-full flex flex-col border-r border-slate-200 shadow-xl z-20">
             <div className={`p-6 text-white bg-gradient-to-r ${mode==='admin' ? 'from-slate-900 to-slate-800' : 'from-blue-600 to-blue-800'}`}>
@@ -598,13 +598,17 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                 )}
             </div>
         </div>
+        
+        {/* CORREÇÃO DO PROBLEMA AQUI: REMOVIDO ID single-ghost DA PRÉ-VISUALIZAÇÃO */}
         <div className="flex-1 flex items-center justify-center bg-slate-200 overflow-auto relative custom-scrollbar"><div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', transformOrigin: 'center center'}}>
             {factoryType === 'mega10' ? 
-                <MegaPoster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition} id="single-ghost" />
+                <MegaPoster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition} />
                 :
                 <Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition}/>
             }
         </div></div>
+
+        {/* MANTÉM ID single-ghost APENAS AQUI (ÁREA OCULTA) */}
         <div style={{position:'absolute', top:0, left:'-9999px'}}>
             {bulkProducts.map((p, i) => (
                 factoryType === 'mega10' ? 
