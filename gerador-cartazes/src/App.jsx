@@ -329,12 +329,16 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
     setAutoLoaded(false);
   }, [factoryType]);
 
-  // CORREÇÃO DO LOOP INFINITO NOS PRESETS
+// CORREÇÃO DO LOOP INFINITO NOS PRESETS
   useEffect(() => { 
     if (presets.length > 0 && !autoLoaded) {
         let targetName = 'PADRÃO VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
         
+        // --- AQUI ESTÁ A MUDANÇA ---
+        // Antes estava: if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
+        if (factoryType === 'mega10') targetName = 'MEGA 10 V2'; 
+        // ---------------------------
+
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
         if (p) { 
             loadPreset(p); 
