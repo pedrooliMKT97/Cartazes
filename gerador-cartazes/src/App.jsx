@@ -625,7 +625,7 @@ const AdminDashboard = ({ onLogout }) => {
     <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
         <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
             <div className="flex items-center gap-6">
-                <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Layers className="text-blue-400"/> PAINEL ADMIN V125</h1>
+                <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Layers className="text-blue-400"/> PAINEL ADMIN</h1>
                 <div className="flex bg-slate-800 rounded-lg p-1 gap-1">
                     <button onClick={()=>setAdminTab('factory')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='factory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <Settings size={14}/> GERADOR
