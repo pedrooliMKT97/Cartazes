@@ -12,7 +12,7 @@ import {
   CheckCircle, RefreshCcw, Sliders, Save, 
   Bookmark, Loader, LayoutTemplate, Move, 
   Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder,
-  GraduationCap, Play // <--- ÍCONES NOVOS ADICIONADOS
+  GraduationCap, Play 
 } from 'lucide-react';
 
 // ============================================================================
@@ -70,7 +70,6 @@ const formatExcelPrice = (v) => { try { const n = parseFloat(String(v).replace('
 // 3. COMPONENTES VISUAIS (Banners e Cartazes)
 // ============================================================================
 
-// Balão do Tutorial
 const TutorialTip = ({ text, onClick, style }) => (
   <div onClick={onClick} className="absolute z-50 bg-red-600 text-yellow-300 font-black text-xs uppercase px-4 py-3 leading-tight rounded-lg shadow-xl animate-bounce cursor-pointer border-2 border-yellow-300 transform -translate-x-1/2 left-1/2 hover:scale-110 transition-transform flex items-center justify-center" style={{ bottom: '100%', marginBottom: '12px', whiteSpace: 'nowrap', minHeight: '40px', ...style }}>
     {text}
@@ -121,7 +120,11 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   return (
     <div id={id} style={s.container}>
       <div style={s.bannerBox}>{!d.bannerImage && <div style={{fontSize:'40px', fontWeight:'bold', opacity:0.2, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>BANNER</div>}</div>
-      <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}><div style={s.nameText}>{product.name}</div>{d.showSubtitle && product.subtitle && <div style={s.subtitleText}>{product.subtitle}</div>}</div>
+      <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}>
+          <div style={s.nameText}>{product.name}</div>
+          {/* Se tiver subtitulo, mostra. Se não tiver, some. */}
+          {product.subtitle && <div style={s.subtitleText}>{product.subtitle}</div>}
+      </div>
       <div style={s.movable('price')} onMouseDown={(e)=>handleMouseDown(e, 'price')}>
           <div style={s.priceWrapper}>
             {d.showOldPrice && product.oldPrice && <div style={s.oldPriceWrapper}><span style={s.oldPriceText}>De: R$ {product.oldPrice}</span></div>}
@@ -165,7 +168,7 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
             <div style={s.movable('mega_name')} onMouseDown={(e) => handleMouseDown(e, 'mega_name')}>
                 <div style={{ padding: '0 20px', textAlign: 'center', width: '100%' }}>
                     <h1 style={{ fontSize: `${55 * scName}px`, fontFamily: fontMega, color: 'black', textTransform: 'uppercase', lineHeight: 1.2, marginBottom: '10px', letterSpacing: `${lSpacing}px` }}>{product.name}</h1>
-                    {design.showSubtitle && product.subtitle && <h2 style={{ fontSize: `${30 * scName}px`, fontFamily: fontMega, color: '#cc0000', textTransform: 'uppercase', marginTop: '10px', letterSpacing: `${lSpacing}px` }}>{product.subtitle}</h2>}
+                    {product.subtitle && <h2 style={{ fontSize: `${30 * scName}px`, fontFamily: fontMega, color: '#cc0000', textTransform: 'uppercase', marginTop: '10px', letterSpacing: `${lSpacing}px` }}>{product.subtitle}</h2>}
                 </div>
             </div>
 
@@ -205,7 +208,7 @@ const LearningPath = () => {
         id: 1, 
         title: "# 1 COMO CRIAR CARTAZ PADRÃO", 
         thumb: "/assets/thumb-cartaz.png", 
-        youtubeId: "4374wDa90_E" // Troque pelo ID real
+        youtubeId: "4374wDa90_E" 
       },
       { 
         id: 2, 
@@ -312,7 +315,8 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: 'SUBTITULO', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
+  // CORREÇÃO: Subtítulo começa vazio (sem texto padrão)
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: '', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
@@ -324,21 +328,16 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
   
-  // CORREÇÃO: Reseta o autoLoaded quando muda o tipo de fábrica
   useEffect(() => {
     setAutoLoaded(false);
   }, [factoryType]);
 
-// CORREÇÃO DO LOOP INFINITO NOS PRESETS
+  // CORREÇÃO: Loop infinito + Carregamento do MEGA 10 V2
   useEffect(() => { 
     if (presets.length > 0 && !autoLoaded) {
         let targetName = 'PADRÃO VERTICAL';
+        if (factoryType === 'mega10') targetName = 'MEGA 10 PADRÃO'; // Alterado para MEGA 10 V2
         
-        // --- AQUI ESTÁ A MUDANÇA ---
-        // Antes estava: if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 PADRÃO'; 
-        // ---------------------------
-
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
         if (p) { 
             loadPreset(p); 
@@ -354,10 +353,28 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
           const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
           const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
           const m = d.map(item => {
+              // CORREÇÃO: Leitura do Subtítulo no Excel
+              const excelSubtitle = item['Subtitulo'] || item['Subtítulo'] || '';
+
               if (factoryType === 'mega10') {
-                  return { name: item['Produto'] || 'Produto', leve: item['Leve'] || 'X', limit: item['Limite'] || '', date: item['Data'] || product.date };
+                  return { 
+                      name: item['Produto'] || 'Produto', 
+                      subtitle: excelSubtitle, 
+                      leve: item['Leve'] || 'X', 
+                      limit: item['Limite'] || '', 
+                      date: item['Data'] || product.date 
+                  };
               } else {
-                  return { name: item['Produto']||'Produto', subtitle: item['Subtitulo']||'', price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: formatExcelPrice(item['Preço "DE"']), unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer };
+                  return { 
+                      name: item['Produto']||'Produto', 
+                      subtitle: excelSubtitle,
+                      price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
+                      oldPrice: formatExcelPrice(item['Preço "DE"']), 
+                      unit: item['Unidade']||'Un', 
+                      limit: item['Limite']||'', 
+                      date: item['Data']||product.date, 
+                      footer: product.footer 
+                  };
               }
           }); 
           setBulkProducts(m); 
@@ -376,7 +393,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
       if (factoryType === 'default') {
           targetName = newOri === 'portrait' ? 'PADRÃO VERTICAL' : 'PADRÃO HORIZONTAL';
       } else {
-          targetName = newOri === 'portrait' ? 'MEGA 10 VERTICAL' : 'MEGA 10 HORIZONTAL'; 
+          targetName = newOri === 'portrait' ? 'MEGA 10 V2' : 'MEGA 10 HORIZONTAL'; 
       }
       const foundPreset = presets.find(p => p.name.trim().toUpperCase() === targetName);
       if (foundPreset) {
@@ -458,7 +475,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
     ] 
   };
 
-return (
+  return (
     <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
         <div className="w-[400px] bg-white h-full flex flex-col border-r border-slate-200 shadow-xl z-20">
             <div className={`p-6 text-white bg-gradient-to-r ${mode==='admin' ? 'from-slate-900 to-slate-800' : 'from-blue-600 to-blue-800'}`}>
@@ -520,7 +537,18 @@ return (
                             </>
                         ) : (
                             <>
-                                <div><div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-500 uppercase">Subtítulo (Vermelho)</label><label className="flex items-center gap-2 cursor-pointer text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors"><input type="checkbox" checked={design.showSubtitle} onChange={e=>setDesign({...design, showSubtitle:e.target.checked})} className="hidden"/> {design.showSubtitle ? 'Ocultar' : 'Mostrar'}</label></div>{design.showSubtitle && <input type="text" value={product.subtitle} onChange={e=>setProduct({...product, subtitle:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-red-600 focus:ring-2 focus:ring-red-500 outline-none placeholder-red-200" placeholder="Ex: Pote 200g"/>}</div>
+                                {/* CORREÇÃO: Input de Subtítulo simplificado (sem checkbox) */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Subtítulo (Opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        value={product.subtitle} 
+                                        onChange={e=>setProduct({...product, subtitle:e.target.value})} 
+                                        className="w-full p-3 border border-slate-300 rounded-lg font-bold text-red-600 focus:ring-2 focus:ring-red-500 outline-none placeholder-red-200" 
+                                        placeholder="Deixe vazio para não aparecer"
+                                    />
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['UNID','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
                                 <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div><div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 mt-5"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})} className="w-5 h-5 text-blue-600 rounded"/><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase block">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" placeholder="Ex: 10,99"/></div></div></div>
                             </>
