@@ -102,7 +102,20 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     container: { width: `${width}px`, height: `${height}px`, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif', userSelect: 'none' },
     bannerBox: { width: '100%', height: `220px`, position: 'absolute', top: 0, left: 0, backgroundImage: d.bannerImage ? `url(${d.bannerImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.05)', zIndex: 10 },
     movable: (key) => ({ position: 'absolute', left: 0, top: 0, transform: `translate(${d.positions[key]?.x || 0}px, ${d.positions[key]?.y || 0}px)`, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: isEditable ? 'move' : 'default', border: isEditable ? '2px dashed #3b82f6' : 'none', backgroundColor: isEditable ? 'rgba(59, 130, 246, 0.1)' : 'transparent', zIndex: 20, padding: '5px' }),
-    nameText: { fontSize: `${60 * scName}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.2', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft:'40px', paddingRight:'40px', letterSpacing: `${lSpacing}px` },
+    nameText: { 
+        fontSize: `${60 * scName}px`, 
+        fontWeight: '900', 
+        textTransform: 'uppercase', 
+        textAlign: 'center', 
+        lineHeight: '1.2', 
+        color: d.nameColor, 
+        wordBreak: 'break-word', 
+        pointerEvents: 'none', 
+        paddingLeft: '50px', 
+        paddingRight: '50px', 
+        letterSpacing: `${lSpacing}px`,
+        whiteSpace: 'pre-wrap' // <--- AQUI: Permite quebra de linha com Enter
+    },
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, top: oldPriceConfig.top, zIndex: 6 }, 
@@ -122,7 +135,6 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
       <div style={s.bannerBox}>{!d.bannerImage && <div style={{fontSize:'40px', fontWeight:'bold', opacity:0.2, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>BANNER</div>}</div>
       <div style={s.movable('name')} onMouseDown={(e)=>handleMouseDown(e, 'name')}>
           <div style={s.nameText}>{product.name}</div>
-          {/* Se tiver subtitulo, mostra. Se não tiver, some. */}
           {product.subtitle && <div style={s.subtitleText}>{product.subtitle}</div>}
       </div>
       <div style={s.movable('price')} onMouseDown={(e)=>handleMouseDown(e, 'price')}>
@@ -166,8 +178,19 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
             {design.bannerImage && ( <div style={{ width: '100%', height: '220px', position: 'absolute', top: 0, left: 0, backgroundImage: `url(${design.bannerImage})`, backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 10 }}></div> )}
 
             <div style={s.movable('mega_name')} onMouseDown={(e) => handleMouseDown(e, 'mega_name')}>
-                <div style={{ padding: '0 50px', textAlign: 'center', width: '100%' }}>
-                    <h1 style={{ fontSize: `${55 * scName}px`, fontFamily: fontMega, color: 'black', textTransform: 'uppercase', lineHeight: 1.2, marginBottom: '10px', letterSpacing: `${lSpacing}px` }}>{product.name}</h1>
+                <div style={{ padding: '0 20px', textAlign: 'center', width: '100%' }}>
+                    <h1 style={{ 
+                        fontSize: `${55 * scName}px`, 
+                        fontFamily: fontMega, 
+                        color: 'black', 
+                        textTransform: 'uppercase', 
+                        lineHeight: 1.2, 
+                        marginBottom: '10px', 
+                        letterSpacing: `${lSpacing}px`,
+                        whiteSpace: 'pre-wrap' // <--- AQUI TAMBÉM
+                    }}>
+                        {product.name}
+                    </h1>
                     {product.subtitle && <h2 style={{ fontSize: `${30 * scName}px`, fontFamily: fontMega, color: '#cc0000', textTransform: 'uppercase', marginTop: '10px', letterSpacing: `${lSpacing}px` }}>{product.subtitle}</h2>}
                 </div>
             </div>
@@ -315,7 +338,6 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  // CORREÇÃO: Subtítulo começa vazio (sem texto padrão)
   const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: '', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
@@ -336,7 +358,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   useEffect(() => { 
     if (presets.length > 0 && !autoLoaded) {
         let targetName = 'PADRÃO VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 PADRÃO'; // Alterado para MEGA 10 V2
+        if (factoryType === 'mega10') targetName = 'MEGA 10 PADRÃO'; // Alterado para MEGA 10 PADRÃO
         
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
         if (p) { 
@@ -393,7 +415,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
       if (factoryType === 'default') {
           targetName = newOri === 'portrait' ? 'PADRÃO VERTICAL' : 'PADRÃO HORIZONTAL';
       } else {
-          targetName = newOri === 'portrait' ? 'MEGA 10 V2' : 'MEGA 10 HORIZONTAL'; 
+          targetName = newOri === 'portrait' ? 'MEGA 10 VERTICAL' : 'MEGA 10 HORIZONTAL'; 
       }
       const foundPreset = presets.find(p => p.name.trim().toUpperCase() === targetName);
       if (foundPreset) {
