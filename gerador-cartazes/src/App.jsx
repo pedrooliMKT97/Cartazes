@@ -12,7 +12,7 @@ import {
   CheckCircle, RefreshCcw, Sliders, Save, 
   Bookmark, Loader, LayoutTemplate, Move, 
   Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder,
-  GraduationCap, Play 
+  GraduationCap, Play, Timer, CalendarClock // <--- ADICIONADOS NOVAMENTE
 } from 'lucide-react';
 
 // ============================================================================
@@ -67,6 +67,36 @@ const sanitizeFileName = (n) => String(n||'cartaz').normalize("NFD").replace(/[\
 const formatExcelPrice = (v) => { try { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? v : n.toFixed(2).replace('.', ','); } catch (e) { return v; } };
 
 // ============================================================================
+// COMPONENTE: CRONÔMETRO (COUNTDOWN) - ESTE É O SEGREDO DO BLOQUEIO
+// ============================================================================
+const CountdownTimer = ({ targetDate }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+  
+    useEffect(() => {
+      const interval = setInterval(() => {
+        const now = new Date().getTime();
+        const distance = new Date(targetDate).getTime() - now;
+  
+        if (distance < 0) {
+          clearInterval(interval);
+          setTimeLeft("LIBERANDO...");
+          // Pequeno hack para recarregar a tela quando o tempo acabar e liberar o botão
+          window.location.reload(); 
+        } else {
+          const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        }
+      }, 1000);
+  
+      return () => clearInterval(interval);
+    }, [targetDate]);
+  
+    return <span className="font-mono text-lg font-black tracking-widest">{timeLeft}</span>;
+};
+
+// ============================================================================
 // 3. COMPONENTES VISUAIS (Banners e Cartazes)
 // ============================================================================
 
@@ -114,7 +144,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
         paddingLeft: '50px', 
         paddingRight: '50px', 
         letterSpacing: `${lSpacing}px`,
-        whiteSpace: 'pre-wrap' // <--- AQUI: Permite quebra de linha com Enter
+        whiteSpace: 'pre-wrap'
     },
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
@@ -178,7 +208,7 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
             {design.bannerImage && ( <div style={{ width: '100%', height: '220px', position: 'absolute', top: 0, left: 0, backgroundImage: `url(${design.bannerImage})`, backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 10 }}></div> )}
 
             <div style={s.movable('mega_name')} onMouseDown={(e) => handleMouseDown(e, 'mega_name')}>
-                <div style={{ padding: '0 20px', textAlign: 'center', width: '100%' }}>
+                <div style={{ padding: '0 50px', textAlign: 'center', width: '100%' }}>
                     <h1 style={{ 
                         fontSize: `${55 * scName}px`, 
                         fontFamily: fontMega, 
@@ -187,7 +217,7 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
                         lineHeight: 1.2, 
                         marginBottom: '10px', 
                         letterSpacing: `${lSpacing}px`,
-                        whiteSpace: 'pre-wrap' // <--- AQUI TAMBÉM
+                        whiteSpace: 'pre-wrap'
                     }}>
                         {product.name}
                     </h1>
@@ -358,7 +388,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   useEffect(() => { 
     if (presets.length > 0 && !autoLoaded) {
         let targetName = 'PADRÃO VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL'; // Alterado para MEGA 10 PADRÃO
+        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL'; // Alterado para MEGA 10 V2
         
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
         if (p) { 
@@ -686,13 +716,14 @@ const AdminDashboard = ({ onLogout }) => {
   const [files, setFiles] = useState([]);
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
+  const [releaseDate, setReleaseDate] = useState(''); // State do agendamento
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
   const [showCampaignsModal, setShowCampaignsModal] = useState(false);
   const [logFilter, setLogFilter] = useState('all'); 
   const [selectedDetail, setSelectedDetail] = useState(null);
-  const [adminTab, setAdminTab] = useState('factory'); // NOVO: Controla aba (Factory ou Upload)
+  const [adminTab, setAdminTab] = useState('factory');
   const [uploadFile, setUploadFile] = useState(null);
   const [factoryMode, setFactoryMode] = useState('default'); 
   const STORES = ['loja01', 'loja02', 'loja03', 'loja04', 'loja05'];
@@ -713,6 +744,13 @@ const AdminDashboard = ({ onLogout }) => {
   const clearHistory = async () => { if(!confirm("Limpar histórico?")) return; try { await supabase.from('poster_logs').delete().neq('id', 0); fetchData(); } catch(e){} };
   const checkDownload = (store, fileId) => { return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store)); };
 
+  // --- CORREÇÃO DE FUSO HORÁRIO AQUI ---
+  const getSafeReleaseDate = (localDateString) => {
+      if (!localDateString) return null;
+      // Cria a data baseada no horário do navegador e converte para UTC global
+      return new Date(localDateString).toISOString();
+  };
+
   const handleDirectUpload = async () => {
       if (!uploadFile || !title || !expiry) return alert("Preencha título, validade e escolha o arquivo!");
       setProcessing(true);
@@ -725,16 +763,18 @@ const AdminDashboard = ({ onLogout }) => {
           
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
           
+          // INSERE COM A DATA CORRIGIDA
           await supabase.from('shared_files').insert([{ 
               title, 
-              expiry_date: expiry, 
+              expiry_date: expiry,
+              release_date: getSafeReleaseDate(releaseDate), // <--- USANDO A FUNÇÃO DE CORREÇÃO
               file_url: publicUrl, 
-              products_json: [], // Vazio pois é upload direto
+              products_json: [], 
               design_json: {} 
           }]);
           
           alert("Arquivo enviado com sucesso!"); 
-          setTitle(''); setExpiry(''); setUploadFile(null); fetchData();
+          setTitle(''); setExpiry(''); setReleaseDate(''); setUploadFile(null); fetchData();
       } catch(e) { alert("Erro no upload: "+e.message); }
       setProcessing(false);
   };
@@ -770,8 +810,17 @@ const AdminDashboard = ({ onLogout }) => {
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
-          await supabase.from('shared_files').insert([{ title, expiry_date: expiry, file_url: publicUrl, products_json: bulkProducts, design_json: design }]);
-          alert("Sucesso!"); setTitle(''); setExpiry(''); fetchData();
+          
+          // INSERE COM A DATA CORRIGIDA
+          await supabase.from('shared_files').insert([{ 
+              title, 
+              expiry_date: expiry,
+              release_date: getSafeReleaseDate(releaseDate), // <--- USANDO A FUNÇÃO DE CORREÇÃO
+              file_url: publicUrl, 
+              products_json: bulkProducts, 
+              design_json: design 
+          }]);
+          alert("Sucesso!"); setTitle(''); setExpiry(''); setReleaseDate(''); fetchData();
       } catch(e) { alert("Erro: "+e.message); }
       setProcessing(false);
   };
@@ -816,7 +865,11 @@ const AdminDashboard = ({ onLogout }) => {
                                 <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
                                     <div className="flex-1">
                                         <h4 className="font-bold text-slate-800 text-lg">{f.title}</h4>
-                                        <p className="text-sm text-slate-500 mt-1 flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
+                                        <div className="flex gap-4 mt-1">
+                                            <p className="text-sm text-slate-500 flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
+                                            {/* MOSTRA NO ADMIN QUANDO SERÁ LIBERADO */}
+                                            {f.release_date && <p className="text-sm text-blue-500 flex items-center gap-2"><CalendarClock size={14}/> Libera: {new Date(f.release_date).toLocaleString('pt-BR')}</p>}
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button onClick={() => setSelectedDetail(f)} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold hover:bg-blue-200 flex items-center gap-2"><Eye size={16}/> Detalhes</button>
@@ -873,6 +926,19 @@ const AdminDashboard = ({ onLogout }) => {
                         </div>
                     </div>
                     
+                    {/* NOVO CAMPO DE AGENDAMENTO DE LANÇAMENTO */}
+                    <div className="w-full">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block flex items-center gap-2">
+                            <Timer size={14} className="text-orange-500"/> Agendar Liberação (Opcional)
+                        </label>
+                        <input 
+                            type="datetime-local" 
+                            value={releaseDate} 
+                            onChange={e=>setReleaseDate(e.target.value)} 
+                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-slate-600 font-medium"
+                        />
+                    </div>
+
                     {adminTab === 'upload' && (
                         <div className="w-full">
                             <label className="block w-full py-8 bg-green-50 border-2 border-dashed border-green-300 text-green-700 rounded-xl cursor-pointer hover:bg-green-100 transition-all text-center">
@@ -971,8 +1037,17 @@ const StoreLayout = ({ user, onLogout }) => {
   const [myDownloads, setMyDownloads] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [factoryMode, setFactoryMode] = useState('default'); 
+  // NOVO: Relógio interno para atualizar os bloqueios
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => { loadFiles(); }, []);
+  
+  // ATUALIZA O RELÓGIO A CADA SEGUNDO
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const loadFiles = async () => { try { const today = new Date().toISOString().split('T')[0]; const { data: f } = await supabase.from('shared_files').select('*').gte('expiry_date', today).order('created_at', {ascending: false}); if(f) setFiles(f); const { data: dls } = await supabase.from('downloads').select('file_id').eq('store_email', user.email); if(dls) setMyDownloads(dls.map(d => d.file_id)); } catch(e) {} };
   const registerDownload = async (fileId) => { try { await supabase.from('downloads').insert([{ store_email: user.email, file_id: fileId }]); setMyDownloads(prev => [...prev, fileId]); } catch(e){} };
   
@@ -982,14 +1057,35 @@ const StoreLayout = ({ user, onLogout }) => {
       
       return filtered.map(f => { 
           const isDownloaded = myDownloads.includes(f.id); 
+          
+          // LÓGICA DE BLOQUEIO
+          // Se tiver data de liberação E a data for maior que agora -> ESTÁ BLOQUEADO
+          const releaseDate = f.release_date ? new Date(f.release_date) : null;
+          const isLocked = releaseDate && releaseDate > now;
+
           return (
-            <div key={f.id} className={`p-6 rounded-2xl shadow-sm transition-all duration-300 border group hover:-translate-y-1 ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100 hover:shadow-xl'}`}>
+            <div key={f.id} className={`p-6 rounded-2xl shadow-sm transition-all duration-300 border group ${isLocked ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100 hover:shadow-xl hover:-translate-y-1'} ${isDownloaded ? 'bg-green-50 border-green-200' : ''}`}>
                 <div className="flex justify-between mb-6">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDownloaded ? 'bg-green-200 text-green-700' : 'bg-red-50 text-red-500'}`}>{isDownloaded ? <Check size={20}/> : <FileText size={20}/>}</div>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocked ? 'bg-orange-200 text-orange-700' : (isDownloaded ? 'bg-green-200 text-green-700' : 'bg-red-50 text-red-500')}`}>
+                        {isLocked ? <Lock size={20}/> : (isDownloaded ? <Check size={20}/> : <FileText size={20}/>)}
+                    </div>
                     <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
                 </div>
-                <h3 className="font-bold text-xl text-slate-800 mb-6 line-clamp-2 h-14">{f.title}</h3>
-                <a href={f.file_url} target="_blank" rel="noreferrer" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>{isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> Baixar PACOTE (ZIP)</>}</a>
+                <h3 className="font-bold text-xl text-slate-800 mb-2 line-clamp-2 h-14">{f.title}</h3>
+                
+                {/* ÁREA DE STATUS (BLOQUEADO OU LIBERADO) */}
+                {isLocked ? (
+                    <div className="bg-orange-100 rounded-xl p-4 text-center border-2 border-orange-200 border-dashed">
+                        <p className="text-xs font-bold text-orange-600 uppercase mb-1">Liberado em:</p>
+                        <div className="text-orange-800">
+                            <CountdownTimer targetDate={releaseDate} />
+                        </div>
+                    </div>
+                ) : (
+                    <a href={f.file_url} target="_blank" rel="noreferrer" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>
+                        {isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> BAIXAR PACOTE</>}
+                    </a>
+                )}
             </div>
           ); 
       });
