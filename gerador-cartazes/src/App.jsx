@@ -1008,8 +1008,16 @@ const StoreLayout = ({ user, onLogout }) => {
                     <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Matriz</span>
                 </button>
 
-                {/* Botão Aprenda (Novo) */}
+                {/* Botão Aprenda (Novo) COM BOLINHA VERMELHA */}
                 <button onClick={()=>setView('learning')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='learning'?'bg-purple-600 shadow-lg scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
+                    
+                    {/* --- BOLINHA VERMELHA PULSANTE AQUI --- */}
+                    <span className="absolute top-3 right-4 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-slate-800"></span>
+                    </span>
+                    {/* -------------------------------------- */}
+
                     <GraduationCap size={24}/>
                     <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Aprenda</span>
                 </button>
