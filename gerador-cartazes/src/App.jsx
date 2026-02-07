@@ -229,21 +229,21 @@ const LearningPath = () => {
     const tutorials = [
       { 
         id: 1, 
-        title: "# 1 COMO CRIAR CARTAZ PADRÃO", 
+        title: "# 1 - COMO CRIAR CARTAZ PADRÃO", 
         thumb: "/assets/thumb-cartaz.png", 
         youtubeId: "4374wDa90_E" 
       },
       { 
         id: 2, 
-        title: "#2 - COMO IMPRIMIR 2 POR FOLHA", 
+        title: "# 2 - COMO IMPRIMIR 2 POR FOLHA", 
         thumb: "/assets/thumb-2por.png", 
         youtubeId: "vNSrtSsKeLQ" 
       },
       { 
         id: 3, 
-        title: "EM BREVE", 
-        thumb: "/assets/thumb-print.png", 
-        youtubeId: "dQw4w9WgXcQ" 
+        title: "# 3 - MEGA 10", 
+        thumb: "/assets/thumb-mega10.png", 
+        youtubeId: "zGmBddxDTJ8" 
       },
         { 
         id: 4, 
@@ -358,7 +358,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   useEffect(() => { 
     if (presets.length > 0 && !autoLoaded) {
         let targetName = 'PADRÃO VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 PADRÃO'; // Alterado para MEGA 10 PADRÃO
+        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL'; // Alterado para MEGA 10 PADRÃO
         
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
         if (p) { 
