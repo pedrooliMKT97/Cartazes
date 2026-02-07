@@ -723,7 +723,7 @@ const AdminDashboard = ({ onLogout }) => {
   const [files, setFiles] = useState([]);
   const [title, setTitle] = useState('');
   const [expiry, setExpiry] = useState('');
-  const [releaseDate, setReleaseDate] = useState(''); // State do agendamento
+  const [releaseDate, setReleaseDate] = useState(''); 
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [factoryData, setFactoryData] = useState({ bulkProducts: [], design: DEFAULT_DESIGN });
@@ -751,10 +751,8 @@ const AdminDashboard = ({ onLogout }) => {
   const clearHistory = async () => { if(!confirm("Limpar histórico?")) return; try { await supabase.from('poster_logs').delete().neq('id', 0); fetchData(); } catch(e){} };
   const checkDownload = (store, fileId) => { return (allDownloads || []).some(d => d.file_id === fileId && d.store_email?.includes(store)); };
 
-  // --- CORREÇÃO DE FUSO HORÁRIO AQUI ---
   const getSafeReleaseDate = (localDateString) => {
       if (!localDateString) return null;
-      // Cria a data baseada no horário do navegador e converte para UTC global
       return new Date(localDateString).toISOString();
   };
 
@@ -770,11 +768,10 @@ const AdminDashboard = ({ onLogout }) => {
           
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
           
-          // INSERE COM A DATA CORRIGIDA
           await supabase.from('shared_files').insert([{ 
               title, 
               expiry_date: expiry,
-              release_date: getSafeReleaseDate(releaseDate), // <--- USANDO A FUNÇÃO DE CORREÇÃO
+              release_date: getSafeReleaseDate(releaseDate), 
               file_url: publicUrl, 
               products_json: [], 
               design_json: {} 
@@ -786,49 +783,90 @@ const AdminDashboard = ({ onLogout }) => {
       setProcessing(false);
   };
 
+  // --- NOVA FUNÇÃO SEND OTIMIZADA PARA LOTES GRANDES ---
   const send = async () => {
       if(!title || !expiry || factoryData.bulkProducts.length === 0) return alert("Faltam dados!");
-      setProcessing(true); setProgress(0);
+      setProcessing(true); 
+      setProgress(0);
+      
       const zip = new JSZip();
       const docUnified = new jsPDF({ orientation: factoryData.design.orientation, unit: 'mm', format: factoryData.design.size });
 
+      // CONFIGURAÇÃO INTELIGENTE DE QUALIDADE
+      // Se tiver mais de 50 cartazes, reduz a qualidade para não travar o navegador e o upload
+      const isHeavy = factoryData.bulkProducts.length > 50;
+      const renderScale = isHeavy ? 1.0 : 1.5; // Reduz escala se for pesado
+      const jpegQuality = isHeavy ? 0.6 : 0.8; // Reduz qualidade JPG se for pesado
+
       try {
           const { bulkProducts, design } = factoryData;
+          
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { 
-                  const c = await html2canvas(el, {scale: 1.5, useCORS:true, scrollY: 0}); 
-                  const imgData = c.toDataURL('image/jpeg', 0.8);
+                  // Gera o canvas
+                  const c = await html2canvas(el, {
+                      scale: renderScale, 
+                      useCORS: true, 
+                      scrollY: 0,
+                      logging: false // Desativa logs para economizar memória
+                  }); 
+                  
+                  const imgData = c.toDataURL('image/jpeg', jpegQuality);
+                  
+                  // Adiciona ao PDF Único
                   const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
+                  
+                  // Adiciona ao ZIP Individual
                   zip.file(`${sanitizeFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
+                  
+                  // Adiciona ao PDFzão unificado
                   if (i > 0) docUnified.addPage();
                   const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
+
+              // ATUALIZA BARRA DE PROGRESSO
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
-              await new Promise(r=>setTimeout(r,10));
+              
+              // PAUSA PARA O NAVEGADOR RESPIRAR (EVITA TRAVAMENTO EM LOTES GRANDES)
+              if (i % 10 === 0) await new Promise(r => setTimeout(r, 300));
+              else await new Promise(r => setTimeout(r, 10));
           }
+
+          // Adiciona o PDF unificado ao ZIP
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
+          
           const zipContent = await zip.generateAsync({type:"blob"});
+          
+          // Verificação de tamanho (apenas alerta no console)
+          if (zipContent.size > 50000000) console.warn("Atenção: Arquivo maior que 50MB!");
+
           const safeTitle = sanitizeFileName(title) || `Campanha_${Date.now()}`;
           const fileName = `${safeTitle}.zip`; 
+          
           const { error: upErr } = await supabase.storage.from('excel-files').upload(fileName, zipContent, { contentType: 'application/zip' });
           if(upErr) throw upErr;
+          
           const { data: { publicUrl } } = supabase.storage.from('excel-files').getPublicUrl(fileName);
           
-          // INSERE COM A DATA CORRIGIDA
           await supabase.from('shared_files').insert([{ 
               title, 
               expiry_date: expiry,
-              release_date: getSafeReleaseDate(releaseDate), // <--- USANDO A FUNÇÃO DE CORREÇÃO
+              release_date: getSafeReleaseDate(releaseDate), 
               file_url: publicUrl, 
               products_json: bulkProducts, 
               design_json: design 
           }]);
-          alert("Sucesso!"); setTitle(''); setExpiry(''); setReleaseDate(''); fetchData();
-      } catch(e) { alert("Erro: "+e.message); }
+          
+          alert(isHeavy ? "Lote Grande Enviado! (Qualidade otimizada para web)" : "Sucesso!"); 
+          setTitle(''); setExpiry(''); setReleaseDate(''); fetchData();
+
+      } catch(e) { 
+          alert("Erro: "+e.message); 
+      }
       setProcessing(false);
   };
 
@@ -874,7 +912,6 @@ const AdminDashboard = ({ onLogout }) => {
                                         <h4 className="font-bold text-slate-800 text-lg">{f.title}</h4>
                                         <div className="flex gap-4 mt-1">
                                             <p className="text-sm text-slate-500 flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
-                                            {/* MOSTRA NO ADMIN QUANDO SERÁ LIBERADO */}
                                             {f.release_date && <p className="text-sm text-blue-500 flex items-center gap-2"><CalendarClock size={14}/> Libera: {new Date(f.release_date).toLocaleString('pt-BR')}</p>}
                                         </div>
                                     </div>
@@ -920,7 +957,7 @@ const AdminDashboard = ({ onLogout }) => {
 
         <div className="flex-1 flex overflow-hidden">
             <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
-                {/* ÁREA DE PUBLICAÇÃO (Muda conforme a aba) */}
+                {/* ÁREA DE PUBLICAÇÃO */}
                 <div className="p-6 bg-white border-b flex flex-col gap-4 shadow-sm z-30">
                     <div className="flex gap-3 items-end">
                         <div className="flex-1">
@@ -933,7 +970,6 @@ const AdminDashboard = ({ onLogout }) => {
                         </div>
                     </div>
                     
-                    {/* NOVO CAMPO DE AGENDAMENTO DE LANÇAMENTO */}
                     <div className="w-full">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block flex items-center gap-2">
                             <Timer size={14} className="text-orange-500"/> Agendar Liberação (Opcional)
@@ -958,7 +994,7 @@ const AdminDashboard = ({ onLogout }) => {
                     )}
 
                     <button onClick={adminTab === 'factory' ? send : handleDirectUpload} disabled={processing} className={`w-full py-4 font-bold rounded-xl shadow-lg text-white flex items-center justify-center gap-2 transition-all ${processing ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-1'} ${adminTab === 'factory' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>
-                        {processing ? <Loader className="animate-spin"/> : (adminTab === 'factory' ? <><Upload size={20}/> PUBLICAR CARTAZES</> : <><CheckCircle size={20}/> ENVIAR ARQUIVO</>)}
+                        {processing ? <Loader className="animate-spin"/> : (adminTab === 'factory' ? <><Upload size={20}/> {processing ? `Gerando ${progress}%` : 'PUBLICAR CARTAZES'}</> : <><CheckCircle size={20}/> ENVIAR ARQUIVO</>)}
                     </button>
                 </div>
 
@@ -976,7 +1012,6 @@ const AdminDashboard = ({ onLogout }) => {
             </div>
             
             <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
-                {/* PAINEL CAMPANHAS */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex justify-between items-center">
                     <div>
                         <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas</h3>
@@ -987,7 +1022,6 @@ const AdminDashboard = ({ onLogout }) => {
                     </button>
                 </div>
 
-                {/* PAINEL HISTÓRICO */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <div className="flex flex-col gap-4 mb-6">
                         <div className="flex justify-between items-center">
