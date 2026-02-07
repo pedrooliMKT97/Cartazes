@@ -80,13 +80,20 @@ const CountdownTimer = ({ targetDate }) => {
         if (distance < 0) {
           clearInterval(interval);
           setTimeLeft("LIBERANDO...");
-          // Pequeno hack para recarregar a tela quando o tempo acabar e liberar o botão
           window.location.reload(); 
         } else {
+          // CÁLCULO CORRIGIDO PARA INCLUIR DIAS
+          const days = Math.floor(distance / (1000 * 60 * 60 * 24));
           const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
           const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+          
+          // Se tiver mais de 0 dias, mostra "Xd Yh..." senão só "Yh Zm..."
+          if (days > 0) {
+              setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+          } else {
+              setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+          }
         }
       }, 1000);
   
