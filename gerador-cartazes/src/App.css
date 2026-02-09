@@ -1,42 +1,137 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ==========================================================================
+   VARIÁVEIS DE TEMA (ENGINE)
+   ========================================================================== */
+:root {
+  --transition-speed: 0.2s;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* --- TEMA CLEAN (LIGHT) --- */
+:root[data-theme="light"], :root {
+  --bg-page: #f1f5f9;       /* Cinza bem claro, quase branco */
+  --bg-surface: #ffffff;    /* Branco puro para cartões */
+  --bg-hover: #f8fafc;
+  
+  --text-main: #0f172a;     /* Quase preto para leitura fácil */
+  --text-muted: #64748b;
+  
+  --border: #e2e8f0;        /* Bordas sutis */
+  
+  --accent: #2563eb;        /* Azul Royal */
+  --accent-hover: #1d4ed8;
+  --accent-light: #eff6ff;
+
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -1px rgb(0 0 0 / 0.01);
+  --shadow-hover: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* --- TEMA DARK (HIGH CONTRAST) --- */
+:root[data-theme="dark"] {
+  --bg-page: #020617;       /* Preto profundo */
+  --bg-surface: #0f172a;    /* Azul muito escuro/Cinza */
+  --bg-hover: #1e293b;
+
+  --text-main: #ffffff;     /* Branco puro para contraste máximo */
+  --text-muted: #cbd5e1;    /* Cinza claro */
+  
+  --border: #334155;        /* Borda cinza visível para separar elementos */
+  
+  --accent: #38bdf8;        /* Azul Ciano Neon */
+  --accent-hover: #0ea5e9;
+  --accent-light: rgba(56, 189, 248, 0.1);
+
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
+  --shadow-hover: 0 0 15px rgba(56, 189, 248, 0.2); /* Brilho neon no hover */
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* ==========================================================================
+   ESTILOS GERAIS
+   ========================================================================== */
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.card {
-  padding: 2em;
+/* Scrollbar personalizada */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-page); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ==========================================================================
+   CLASSES UTILITÁRIAS (Aplique estas classes no seu JSX)
+   ========================================================================== */
+
+/* Botões */
+button { cursor: pointer; transition: all var(--transition-speed); }
+
+.btn-primary {
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  font-weight: 700;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Cards (Arquivos, Login, etc) */
+.card-base {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
 }
 
-.read-the-docs {
-  color: #888;
+/* Efeito Hover nos Cards de Arquivo */
+.file-card-hover:hover {
+  transform: translateY(-5px) scale(1.01);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Sidebar e Paineis */
+.bg-surface { background-color: var(--bg-surface); }
+.border-color { border-color: var(--border); }
+.text-main { color: var(--text-main); }
+.text-muted { color: var(--text-muted); }
+
+/* Inputs */
+input, select, textarea {
+  background-color: var(--bg-page);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+/* Toggle de Tema */
+.theme-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.theme-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: rotate(15deg);
 }

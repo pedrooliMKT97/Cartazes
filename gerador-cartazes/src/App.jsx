@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -12,8 +12,43 @@ import {
   CheckCircle, RefreshCcw, Sliders, Save, 
   Bookmark, Loader, LayoutTemplate, Move, 
   Package, Eye, X, Search, Filter, Check, Star, Settings, Lock, FileUp, Folder,
-  GraduationCap, Play, Timer, CalendarClock // <--- ADICIONADOS NOVAMENTE
+  GraduationCap, Play, Timer, CalendarClock, Sun, Moon, Sparkles, Zap, TrendingUp
 } from 'lucide-react';
+
+// ============================================================================
+// THEME CONTEXT (LÓGICA DO TEMA)
+// ============================================================================
+const ThemeContext = createContext();
+
+const ThemeProvider = ({ children }) => {
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+
+const useTheme = () => useContext(ThemeContext);
+
+const ThemeToggle = () => {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button onClick={toggleTheme} className="theme-switcher" title="Alternar Tema">
+      {theme === 'dark' ? <Sun size={20} className="text-yellow-400"/> : <Moon size={20} className="text-blue-600"/>}
+    </button>
+  );
+};
 
 // ============================================================================
 // 1. CONFIGURAÇÕES GERAIS E POSIÇÕES
@@ -67,7 +102,7 @@ const sanitizeFileName = (n) => String(n||'cartaz').normalize("NFD").replace(/[\
 const formatExcelPrice = (v) => { try { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? v : n.toFixed(2).replace('.', ','); } catch (e) { return v; } };
 
 // ============================================================================
-// COMPONENTE: CRONÔMETRO (COUNTDOWN) - ESTE É O SEGREDO DO BLOQUEIO
+// COMPONENTE: CRONÔMETRO
 // ============================================================================
 const CountdownTimer = ({ targetDate }) => {
     const [timeLeft, setTimeLeft] = useState('');
@@ -82,13 +117,11 @@ const CountdownTimer = ({ targetDate }) => {
           setTimeLeft("LIBERANDO...");
           window.location.reload(); 
         } else {
-          // CÁLCULO CORRIGIDO PARA INCLUIR DIAS
           const days = Math.floor(distance / (1000 * 60 * 60 * 24));
           const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
           const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((distance % (1000 * 60)) / 1000);
           
-          // Se tiver mais de 0 dias, mostra "Xd Yh..." senão só "Yh Zm..."
           if (days > 0) {
               setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
           } else {
@@ -100,7 +133,7 @@ const CountdownTimer = ({ targetDate }) => {
       return () => clearInterval(interval);
     }, [targetDate]);
   
-    return <span className="font-mono text-lg font-black tracking-widest">{timeLeft}</span>;
+    return <span className="font-mono text-lg font-black tracking-widest text-[var(--accent)] animate-pulse">{timeLeft}</span>;
 };
 
 // ============================================================================
@@ -108,13 +141,13 @@ const CountdownTimer = ({ targetDate }) => {
 // ============================================================================
 
 const TutorialTip = ({ text, onClick, style }) => (
-  <div onClick={onClick} className="absolute z-50 bg-red-600 text-yellow-300 font-black text-xs uppercase px-4 py-3 leading-tight rounded-lg shadow-xl animate-bounce cursor-pointer border-2 border-yellow-300 transform -translate-x-1/2 left-1/2 hover:scale-110 transition-transform flex items-center justify-center" style={{ bottom: '100%', marginBottom: '12px', whiteSpace: 'nowrap', minHeight: '40px', ...style }}>
+  <div onClick={onClick} className="absolute z-50 bg-[var(--accent)] text-white font-bold text-xs uppercase px-4 py-2 rounded-lg shadow-xl animate-bounce cursor-pointer border-2 border-white transform -translate-x-1/2 left-1/2 hover:scale-110 transition-transform flex items-center justify-center" style={{ bottom: '100%', marginBottom: '12px', whiteSpace: 'nowrap', minHeight: '40px', ...style }}>
     {text}
-    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-red-600"></div>
+    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-[var(--accent)]"></div>
   </div>
 );
 
-// Componente: Poster Padrão
+// Componente: Poster Padrão (MANTIDO IGUAL)
 const Poster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
   if (!product) return null;
   const d = { ...DEFAULT_DESIGN, ...design, positions: { ...(design.orientation === 'portrait' ? PORTRAIT_POS : LANDSCAPE_POS), ...(design?.positions || {}) } };
@@ -139,20 +172,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
     container: { width: `${width}px`, height: `${height}px`, backgroundColor: 'white', overflow: 'hidden', position: 'relative', fontFamily: 'Arial, sans-serif', userSelect: 'none' },
     bannerBox: { width: '100%', height: `220px`, position: 'absolute', top: 0, left: 0, backgroundImage: d.bannerImage ? `url(${d.bannerImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.05)', zIndex: 10 },
     movable: (key) => ({ position: 'absolute', left: 0, top: 0, transform: `translate(${d.positions[key]?.x || 0}px, ${d.positions[key]?.y || 0}px)`, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: isEditable ? 'move' : 'default', border: isEditable ? '2px dashed #3b82f6' : 'none', backgroundColor: isEditable ? 'rgba(59, 130, 246, 0.1)' : 'transparent', zIndex: 20, padding: '5px' }),
-    nameText: { 
-        fontSize: `${60 * scName}px`, 
-        fontWeight: '900', 
-        textTransform: 'uppercase', 
-        textAlign: 'center', 
-        lineHeight: '1.2', 
-        color: d.nameColor, 
-        wordBreak: 'break-word', 
-        pointerEvents: 'none', 
-        paddingLeft: '50px', 
-        paddingRight: '50px', 
-        letterSpacing: `${lSpacing}px`,
-        whiteSpace: 'pre-wrap'
-    },
+    nameText: { fontSize: `${60 * scName}px`, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', lineHeight: '1.2', color: d.nameColor, wordBreak: 'break-word', pointerEvents: 'none', paddingLeft: '50px', paddingRight: '50px', letterSpacing: `${lSpacing}px`, whiteSpace: 'pre-wrap' },
     subtitleText: { fontSize: `${30 * scName}px`, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', color: '#cc0000', marginTop: '10px', pointerEvents: 'none' },
     priceWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' },
     oldPriceWrapper: { position: 'relative', marginBottom: oldPriceConfig.margin, top: oldPriceConfig.top, zIndex: 6 }, 
@@ -186,7 +206,7 @@ const Poster = ({ product, design, width, height, id, isEditable, onUpdatePositi
   );
 };
 
-// Componente: Mega 10
+// Componente: Mega 10 (MANTIDO IGUAL)
 const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePosition }) => {
     if (!product) return null;
     const isPortrait = design.orientation === 'portrait';
@@ -216,18 +236,7 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
 
             <div style={s.movable('mega_name')} onMouseDown={(e) => handleMouseDown(e, 'mega_name')}>
                 <div style={{ padding: '0 50px', textAlign: 'center', width: '100%' }}>
-                    <h1 style={{ 
-                        fontSize: `${55 * scName}px`, 
-                        fontFamily: fontMega, 
-                        color: 'black', 
-                        textTransform: 'uppercase', 
-                        lineHeight: 1.2, 
-                        marginBottom: '10px', 
-                        letterSpacing: `${lSpacing}px`,
-                        whiteSpace: 'pre-wrap'
-                    }}>
-                        {product.name}
-                    </h1>
+                    <h1 style={{ fontSize: `${55 * scName}px`, fontFamily: fontMega, color: 'black', textTransform: 'uppercase', lineHeight: 1.2, marginBottom: '10px', letterSpacing: `${lSpacing}px`, whiteSpace: 'pre-wrap' }}>{product.name}</h1>
                     {product.subtitle && <h2 style={{ fontSize: `${30 * scName}px`, fontFamily: fontMega, color: '#cc0000', textTransform: 'uppercase', marginTop: '10px', letterSpacing: `${lSpacing}px` }}>{product.subtitle}</h2>}
                 </div>
             </div>
@@ -257,97 +266,51 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
 };
 
 // ============================================================================
-// NOVO COMPONENTE: CAMINHO DO APRENDIZADO
+// COMPONENTE: CAMINHO DO APRENDIZADO
 // ============================================================================
 const LearningPath = () => {
     const [selectedVideo, setSelectedVideo] = useState(null);
   
-    // --- LISTA DE VÍDEOS ---
     const tutorials = [
-      { 
-        id: 1, 
-        title: "# 1 - COMO CRIAR CARTAZ PADRÃO", 
-        thumb: "/assets/thumb-cartaz.png", 
-        youtubeId: "4374wDa90_E" 
-      },
-      { 
-        id: 2, 
-        title: "# 2 - COMO IMPRIMIR 2 POR FOLHA", 
-        thumb: "/assets/thumb-2por.png", 
-        youtubeId: "vNSrtSsKeLQ" 
-      },
-      { 
-        id: 3, 
-        title: "# 3 - MEGA 10", 
-        thumb: "/assets/thumb-mega10.png", 
-        youtubeId: "zGmBddxDTJ8" 
-      },
-        { 
-        id: 4, 
-        title: "EM BREVE", 
-        thumb: "/assets/thumb-mega.png", 
-        youtubeId: "dQw4w9WgXcQ" 
-      },
+      { id: 1, title: "# 1 - COMO CRIAR CARTAZ PADRÃO", thumb: "/assets/thumb-cartaz.png", youtubeId: "4374wDa90_E" },
+      { id: 2, title: "# 2 - COMO IMPRIMIR 2 POR FOLHA", thumb: "/assets/thumb-2por.png", youtubeId: "vNSrtSsKeLQ" },
+      { id: 3, title: "# 3 - MEGA 10", thumb: "/assets/thumb-mega10.png", youtubeId: "zGmBddxDTJ8" },
+      { id: 4, title: "EM BREVE", thumb: "/assets/thumb-mega.png", youtubeId: "dQw4w9WgXcQ" },
     ];
   
     return (
-      <div className="p-10 h-full overflow-y-auto bg-slate-100">
+      <div className="p-10 h-full overflow-y-auto" style={{backgroundColor: 'var(--bg-page)', color: 'var(--text-main)'}}>
         <div className="mb-8">
-          <h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center">
-            <GraduationCap className="text-blue-600" size={32}/> 
+          <h2 className="text-3xl font-extrabold flex gap-3 items-center">
+            <GraduationCap className="text-[var(--accent)]" size={32}/> 
             Caminho do Aprendizado
           </h2>
-          <p className="text-slate-500 mt-2">Assista aos tutoriais para dominar a ferramenta.</p>
+          <p className="text-[var(--text-muted)] mt-2">Assista aos tutoriais para dominar a ferramenta.</p>
         </div>
   
-        {/* GRADE DE VÍDEOS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
-          {tutorials.map((item) => (
-            <div 
-              key={item.id} 
-              onClick={() => setSelectedVideo(item.youtubeId)}
-              className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-            >
-              {/* THUMBNAIL */}
-              <div className="relative aspect-video bg-slate-800 flex items-center justify-center overflow-hidden">
-                <img 
-                  src={item.thumb} 
-                  alt={item.title} 
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity"
-                  onError={(e) => {e.target.src = 'https://via.placeholder.com/640x360?text=VIDEO';}}
-                />
+          {tutorials.map((item, index) => (
+            <div key={item.id} onClick={() => setSelectedVideo(item.youtubeId)} className="group bg-[var(--bg-surface)] rounded-2xl shadow-sm border border-[var(--border)] overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+              <div className="relative aspect-video bg-gray-900 flex items-center justify-center overflow-hidden">
+                <img src={item.thumb} alt={item.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" onError={(e) => {e.target.src = 'https://via.placeholder.com/640x360?text=VIDEO';}} />
                 <div className="absolute w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white group-hover:scale-110 transition-transform">
                   <Play fill="white" className="text-white ml-1" size={24}/>
                 </div>
               </div>
-              {/* TEXTO */}
               <div className="p-5">
-                <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
-                  {item.title}
-                </h3>
-                <p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-wider">Assistir Aula</p>
+                <h3 className="font-bold text-lg text-[var(--text-main)] group-hover:text-[var(--accent)] transition-colors">{item.title}</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-2 font-bold uppercase tracking-wider">Assistir Aula</p>
               </div>
             </div>
           ))}
         </div>
   
-        {/* MODAL DE VÍDEO */}
         {selectedVideo && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedVideo(null)}>
             <div className="w-full max-w-5xl bg-black rounded-2xl overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
-              <button 
-                onClick={() => setSelectedVideo(null)}
-                className="absolute top-4 right-4 text-white/50 hover:text-white bg-black/50 hover:bg-red-600 rounded-full p-2 transition-all z-10"
-              >
-                <X size={24}/>
-              </button>
+              <button onClick={() => setSelectedVideo(null)} className="absolute top-4 right-4 text-white/50 hover:text-white bg-black/50 hover:bg-red-600 rounded-full p-2 transition-all z-10"><X size={24}/></button>
               <div className="aspect-video w-full">
-                <iframe 
-                  width="100%" height="100%" 
-                  src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`} 
-                  title="YouTube video player" frameBorder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
-                ></iframe>
+                <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
               </div>
             </div>
           </div>
@@ -357,7 +320,7 @@ const LearningPath = () => {
 };
 
 // ============================================================================
-// 4. LÓGICA DO SISTEMA (Factory, Admin, Layout)
+// 4. LÓGICA DO SISTEMA (Factory, Admin, Layout) - TODAS FUNÇÕES MANTIDAS
 // ============================================================================
 
 const usePresets = (setDesign) => {
@@ -380,22 +343,17 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
   const [autoLoaded, setAutoLoaded] = useState(false);
-  
-  // STATE PARA O TUTORIAL
   const [tutorialStep, setTutorialStep] = useState(0); 
 
   useEffect(() => { const h = window.innerHeight * 0.85; setPreviewScale(h / (design.orientation === 'portrait' ? 1123 : 794)); }, [design.orientation]);
   useEffect(() => { if (mode === 'admin' && onAdminReady) onAdminReady({ bulkProducts, design }); }, [bulkProducts, design, mode]);
-  
-  useEffect(() => {
-    setAutoLoaded(false);
-  }, [factoryType]);
+  useEffect(() => { setAutoLoaded(false); }, [factoryType]);
 
   // CORREÇÃO: Loop infinito + Carregamento do MEGA 10 V2
   useEffect(() => { 
     if (presets.length > 0 && !autoLoaded) {
         let targetName = 'PADRÃO VERTICAL';
-        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL'; // Alterado para MEGA 10 V2
+        if (factoryType === 'mega10') targetName = 'MEGA 10 VERTICAL';
         
         const p = presets.find(item => item.name.trim().toUpperCase() === targetName);
         if (p) { 
@@ -412,28 +370,11 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
           const wb = XLSX.read(evt.target.result, { type: 'binary' }); 
           const d = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
           const m = d.map(item => {
-              // CORREÇÃO: Leitura do Subtítulo no Excel
               const excelSubtitle = item['Subtitulo'] || item['Subtítulo'] || '';
-
               if (factoryType === 'mega10') {
-                  return { 
-                      name: item['Produto'] || 'Produto', 
-                      subtitle: excelSubtitle, 
-                      leve: item['Leve'] || 'X', 
-                      limit: item['Limite'] || '', 
-                      date: item['Data'] || product.date 
-                  };
+                  return { name: item['Produto'] || 'Produto', subtitle: excelSubtitle, leve: item['Leve'] || 'X', limit: item['Limite'] || '', date: item['Data'] || product.date };
               } else {
-                  return { 
-                      name: item['Produto']||'Produto', 
-                      subtitle: excelSubtitle,
-                      price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), 
-                      oldPrice: formatExcelPrice(item['Preço "DE"']), 
-                      unit: item['Unidade']||'Un', 
-                      limit: item['Limite']||'', 
-                      date: item['Data']||product.date, 
-                      footer: product.footer 
-                  };
+                  return { name: item['Produto']||'Produto', subtitle: excelSubtitle, price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: formatExcelPrice(item['Preço "DE"']), unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer };
               }
           }); 
           setBulkProducts(m); 
@@ -452,7 +393,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
       if (factoryType === 'default') {
           targetName = newOri === 'portrait' ? 'PADRÃO VERTICAL' : 'PADRÃO HORIZONTAL';
       } else {
-          targetName = newOri === 'portrait' ? 'MEGA 10 VERTICAL' : 'MEGA 10 HORIZONTAL'; 
+          targetName = newOri === 'portrait' ? 'MEGA 10 V2' : 'MEGA 10 HORIZONTAL'; 
       }
       const foundPreset = presets.find(p => p.name.trim().toUpperCase() === targetName);
       if (foundPreset) {
@@ -535,153 +476,119 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   };
 
   return (
-    <div className="flex h-full flex-col md:flex-row bg-slate-50 overflow-hidden font-sans">
-        <div className="w-[400px] bg-white h-full flex flex-col border-r border-slate-200 shadow-xl z-20">
+    <div className="flex h-full flex-col md:flex-row bg-[var(--bg-page)] overflow-hidden font-sans transition-colors duration-300">
+        {/* SIDEBAR COM TEMA APLICADO */}
+        <div className="w-[400px] bg-[var(--bg-surface)] h-full flex flex-col border-r border-[var(--border)] shadow-xl z-20">
             <div className={`p-6 text-white bg-gradient-to-r ${mode==='admin' ? 'from-slate-900 to-slate-800' : 'from-blue-600 to-blue-800'}`}>
                 <h2 className="font-extrabold uppercase tracking-wider text-sm flex items-center gap-2">
                     <Sliders size={18}/> {factoryType === 'mega10' ? 'FÁBRICA MEGA 10' : (mode==='admin'?'Editor Admin':'Fábrica Própria')}
                 </h2>
             </div>
-            <div className="flex border-b bg-slate-50">
-                {/* ABA DE DADOS (COM TUTORIAL PASSO 2 -> 3) */}
+            
+            {/* TABS COM CORES DO TEMA */}
+            <div className="flex border-b border-[var(--border)] bg-[var(--bg-page)]">
                 <button 
-                  onClick={()=>{
-                    setActiveTab('content'); 
-                    if(mode === 'local' && tutorialStep === 2) setTutorialStep(3); 
-                  }} 
-                  className={`flex-1 py-4 font-bold text-sm transition-colors relative ${activeTab==='content'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}
+                  onClick={()=>{ setActiveTab('content'); if(mode === 'local' && tutorialStep === 2) setTutorialStep(3); }} 
+                  className={`flex-1 py-4 font-bold text-sm transition-colors relative ${activeTab==='content'?'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--bg-surface)]':'text-[var(--text-muted)] hover:bg-[var(--bg-surface)]'}`}
                 >
                   1. Dados
                   {mode === 'local' && tutorialStep === 2 && <TutorialTip text="AGORA VOLTE" onClick={()=>setTutorialStep(3)}/>}
                 </button>
-                
-                {/* ABA DE VISUAL (COM TUTORIAL PASSO 0 -> 1) */}
                 <button 
-                  onClick={()=>{
-                    setActiveTab('design');
-                    if(mode === 'local' && tutorialStep === 0) setTutorialStep(1);
-                  }} 
-                  className={`flex-1 py-4 font-bold text-sm transition-colors relative ${activeTab==='design'?'text-blue-600 border-b-2 border-blue-600 bg-white':'text-slate-500 hover:bg-slate-100'}`}
+                  onClick={()=>{ setActiveTab('design'); if(mode === 'local' && tutorialStep === 0) setTutorialStep(1); }} 
+                  className={`flex-1 py-4 font-bold text-sm transition-colors relative ${activeTab==='design'?'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--bg-surface)]':'text-[var(--text-muted)] hover:bg-[var(--bg-surface)]'}`}
                 >
                   2. Visual
                   {mode === 'local' && tutorialStep === 0 && <TutorialTip text="PRIMEIRO PASSO" onClick={()=>setTutorialStep(1)}/>}
                 </button>
             </div>
             
-            <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+            <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 text-[var(--text-main)]">
                 {activeTab === 'content' ? (
                     <div className="space-y-5 relative">
-                        <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center" onClick={() => { if(mode === 'local' && tutorialStep === 3) setTutorialStep(4); }}>
-                            <h3 className="text-blue-900 font-bold text-sm mb-3">GERAÇÃO EM MASSA</h3>
-                            <label className="block w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 rounded-lg cursor-pointer text-xs font-bold uppercase hover:bg-blue-50 hover:border-blue-500 transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
-                            {mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocalZip} disabled={isGenerating} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-bold uppercase hover:shadow-lg transition-all flex items-center justify-center gap-2">{isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>} {isGenerating ? `Gerando ZIP...` : `Baixar ZIP (${bulkProducts.length})`}</button>)}
-                            {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-700 font-bold flex items-center justify-center gap-1"><CheckCircle size={12}/> {bulkProducts.length} produtos carregados</p>}
+                        {/* BOX DE UPLOAD - ESTILIZADO */}
+                        <div className="bg-[var(--accent-light)] border border-blue-200 p-5 rounded-xl text-center" onClick={() => { if(mode === 'local' && tutorialStep === 3) setTutorialStep(4); }}>
+                            <h3 className="text-[var(--accent)] font-bold text-sm mb-3">GERAÇÃO EM MASSA</h3>
+                            <label className="block w-full py-3 bg-[var(--bg-surface)] border-2 border-dashed border-blue-300 text-[var(--accent)] rounded-lg cursor-pointer text-xs font-bold uppercase hover:border-[var(--accent)] transition-all mb-3"><Upload className="inline w-4 h-4 mr-2"/> Carregar Planilha<input type="file" className="hidden" onChange={handleExcel} accept=".xlsx, .csv" /></label>
+                            {mode === 'local' && bulkProducts.length > 0 && (<button onClick={generateLocalZip} disabled={isGenerating} className="btn-primary w-full py-3 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2">{isGenerating ? <Loader className="animate-spin" size={16}/> : <Package size={16}/>} {isGenerating ? `Gerando ZIP...` : `Baixar ZIP (${bulkProducts.length})`}</button>)}
+                            {mode === 'admin' && bulkProducts.length > 0 && <p className="text-xs text-green-600 font-bold flex items-center justify-center gap-1"><CheckCircle size={12}/> {bulkProducts.length} produtos carregados</p>}
                         </div>
                         
-                        <div className="relative"><span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400">PRODUTO ÚNICO</span><div className="border-t border-slate-200"></div></div>
+                        <div className="relative"><span className="absolute -top-2 left-3 bg-[var(--bg-surface)] px-1 text-[10px] font-bold text-[var(--text-muted)]">PRODUTO ÚNICO</span><div className="border-t border-[var(--border)]"></div></div>
                         
-                        {/* INPUT COM TUTORIAL EMBUTIDO */}
                         <div className="relative" onClick={() => { if(mode === 'local' && tutorialStep === 3) setTutorialStep(4); }}>
-                            {mode === 'local' && tutorialStep === 3 && (
-                                <TutorialTip text="PREENCHA OS DADOS" onClick={()=>setTutorialStep(4)}/>
-                            )}
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Produto</label>
-                            <textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-20"/>
+                            {mode === 'local' && tutorialStep === 3 && (<TutorialTip text="PREENCHA OS DADOS" onClick={()=>setTutorialStep(4)}/>)}
+                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Nome do Produto</label>
+                            <textarea value={product.name} onChange={e=>setProduct({...product, name:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg font-bold focus:border-[var(--accent)] outline-none resize-none h-20"/>
                         </div>
                         
                         {factoryType === 'mega10' ? (
                             <>
-                                <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Quantidade (Leve)</label><input type="text" value={product.leve} onChange={e=>setProduct({...product, leve:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-center text-red-600 outline-none"/></div><div className="flex flex-col justify-center items-center"><span className="text-xs font-bold text-slate-400">PREÇO FIXO</span><span className="text-2xl font-black text-slate-800">R$ 10,00</span></div></div>
-                                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite (Opcional)</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm" placeholder="Ex: 5"/></div>
+                                <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Quantidade (Leve)</label><input type="text" value={product.leve} onChange={e=>setProduct({...product, leve:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg font-bold text-xl text-center outline-none"/></div><div className="flex flex-col justify-center items-center"><span className="text-xs font-bold text-[var(--text-muted)]">PREÇO FIXO</span><span className="text-2xl font-black text-[var(--text-main)]">R$ 10,00</span></div></div>
+                                <div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Limite (Opcional)</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg text-sm" placeholder="Ex: 5"/></div>
                             </>
                         ) : (
                             <>
-                                {/* CORREÇÃO: Input de Subtítulo simplificado (sem checkbox) */}
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Subtítulo (Opcional)</label>
-                                    <input 
-                                        type="text" 
-                                        value={product.subtitle} 
-                                        onChange={e=>setProduct({...product, subtitle:e.target.value})} 
-                                        className="w-full p-3 border border-slate-300 rounded-lg font-bold text-red-600 focus:ring-2 focus:ring-red-500 outline-none placeholder-red-200" 
-                                        placeholder="Deixe vazio para não aparecer"
-                                    />
+                                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Subtítulo (Opcional)</label>
+                                    <input type="text" value={product.subtitle} onChange={e=>setProduct({...product, subtitle:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] rounded-lg font-bold text-red-500 focus:border-red-500 outline-none" placeholder="Deixe vazio para não aparecer"/>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-xl text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"/></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none">{['UNID','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
-                                <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div><div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 mt-5"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})} className="w-5 h-5 text-blue-600 rounded"/><div className="flex-1"><label className="text-xs font-bold text-slate-500 uppercase block">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" placeholder="Ex: 10,99"/></div></div></div>
+                                <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Preço (R$)</label><input type="text" value={product.price} onChange={e=>setProduct({...product, price:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg font-bold text-xl outline-none"/></div><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Unidade</label><select value={product.unit} onChange={e=>setProduct({...product, unit:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg font-bold outline-none">{['UNID','Kg','100g','Pack','Cx'].map(u=><option key={u}>{u}</option>)}</select></div></div>
+                                <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Limite</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg text-sm"/></div><div className="flex items-center gap-3 bg-[var(--bg-page)] p-3 rounded-lg border border-[var(--border)] mt-5"><input type="checkbox" checked={design.showOldPrice} onChange={e=>setDesign({...design, showOldPrice:e.target.checked})} className="w-5 h-5 accent-blue-600 rounded"/><div className="flex-1"><label className="text-xs font-bold text-[var(--text-muted)] uppercase block">Preço "De"</label><input disabled={!design.showOldPrice} type="text" value={product.oldPrice} onChange={e=>setProduct({...product, oldPrice:e.target.value})} className="w-full bg-transparent border-b border-[var(--border)] focus:border-blue-500 outline-none text-sm font-bold text-[var(--text-muted)]" placeholder="Ex: 10,99"/></div></div></div>
                             </>
                         )}
 
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>handleDateChange(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm"/></div>
+                        <div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Validade/Rodapé</label><input type="text" value={product.date} onChange={e=>handleDateChange(e.target.value)} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg text-sm"/></div>
                         
-                        {mode === 'local' && (<button onClick={generateSingle} disabled={isGenerating} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mt-4">{isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}</button>)}
+                        {mode === 'local' && (<button onClick={generateSingle} disabled={isGenerating} className="btn-primary w-full py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 mt-4">{isGenerating ? <Loader className="animate-spin"/> : <><Download size={18}/> BAIXAR CARTAZ (PDF)</>}</button>)}
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* LISTA DE PRESETS COM TUTORIAL PASSO 1 -> 2 */}
-                        <div className="flex flex-col gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm relative">
-                            {mode === 'local' && tutorialStep === 1 && (
-                                <TutorialTip text="ESCOLHA UM PRESET" onClick={()=>setTutorialStep(2)} style={{top: '40px', left: '50%'}}/>
-                            )}
+                        {/* PRESETS */}
+                        <div className="flex flex-col gap-3 p-4 bg-[var(--accent-light)] rounded-xl border border-blue-100 shadow-sm relative">
+                            {mode === 'local' && tutorialStep === 1 && (<TutorialTip text="ESCOLHA UM PRESET" onClick={()=>setTutorialStep(2)} style={{top: '40px', left: '50%'}}/>)}
 
-                            <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-2"><div className="flex items-center gap-2 text-purple-800 font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>{mode === 'admin' && (<div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div>)}</div>
+                            <div className="flex justify-between items-center border-b border-blue-200 pb-2 mb-2"><div className="flex items-center gap-2 text-[var(--accent)] font-bold text-xs uppercase"><Bookmark size={14}/> Meus Presets (Nuvem)</div>{mode === 'admin' && (<div className="flex gap-2"><button onClick={()=>savePreset(design)} className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded font-bold hover:bg-purple-700 flex items-center gap-1"><Save size={10}/> SALVAR</button><button onClick={resetPositions} className="text-[10px] bg-gray-400 text-white px-3 py-1 rounded font-bold hover:bg-gray-500 flex items-center gap-1"><RefreshCcw size={10}/> RESET</button></div>)}</div>
                             
                             {presets.length > 0 ? (
                                 <div className="space-y-1"> 
                                     {presets.map((p,i)=>(
-                                        <div key={i} 
-                                             onClick={()=>{ 
-                                                 loadPreset(p); 
-                                                 if(mode === 'local' && tutorialStep === 1) setTutorialStep(2); 
-                                             }} 
-                                             className="flex justify-between items-center bg-white p-2 rounded border border-purple-100 hover:bg-purple-100 cursor-pointer group"
-                                        >
-                                            <span className="text-xs font-bold text-slate-700">{p.name}</span>
-                                            {mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 size={12}/></button>}
+                                        <div key={i} onClick={()=>{ loadPreset(p); if(mode === 'local' && tutorialStep === 1) setTutorialStep(2); }} className="flex justify-between items-center bg-[var(--bg-surface)] p-2 rounded border border-[var(--border)] hover:bg-[var(--bg-hover)] cursor-pointer group">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">{p.name}</span>
+                                            {mode === 'admin' && <button onClick={(e)=>deletePreset(p.id,e)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={12}/></button>}
                                         </div>
                                     ))}
                                 </div>
-                            ) : <p className="text-xs text-purple-400 italic text-center">Nenhum preset salvo na nuvem.</p>}
+                            ) : <p className="text-xs text-[var(--text-muted)] italic text-center">Nenhum preset salvo na nuvem.</p>}
                         </div>
                         
-                        {/* CONTROLES EXCLUSIVOS PARA O ADMIN */}
-                        {mode === 'admin' && (
-                            <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${editMode ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'}`} onClick={() => setEditMode(!editMode)}><div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{editMode ? <Move size={20}/> : <div className="w-5 h-5"/>}</div><div><h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-slate-600'}`}>Mover Itens (Drag & Drop)</h4><p className="text-[10px] text-slate-400">Clique e arraste Nome, Preço e Limite</p></div></div><div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div></div>
-                        )}
+                        {mode === 'admin' && (<div className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${editMode ? 'border-blue-500 bg-blue-50' : 'border-[var(--border)] hover:border-blue-300'}`} onClick={() => setEditMode(!editMode)}><div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${editMode ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{editMode ? <Move size={20}/> : <div className="w-5 h-5"/>}</div><div><h4 className={`font-bold text-sm ${editMode ? 'text-blue-700' : 'text-gray-600'}`}>Mover Itens (Drag & Drop)</h4><p className="text-[10px] text-gray-400">Clique e arraste Nome, Preço e Limite</p></div></div><div className={`w-12 h-6 rounded-full p-1 transition-colors ${editMode ? 'bg-blue-500' : 'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editMode ? 'translate-x-6' : 'translate-x-0'}`}></div></div></div>)}
 
                         {mode !== 'admin' && (
                             <div className="p-4 rounded-xl border border-yellow-200 bg-yellow-50 flex items-center gap-3">
                                 <Lock size={20} className="text-yellow-600"/>
-                                <div>
-                                    <h4 className="font-bold text-xs text-yellow-800 uppercase">Edição Bloqueada</h4>
-                                    <p className="text-[10px] text-yellow-700">Selecione um Preset acima para mudar o formato.</p>
-                                </div>
+                                <div><h4 className="font-bold text-xs text-yellow-800 uppercase">Edição Bloqueada</h4><p className="text-[10px] text-yellow-700">Selecione um Preset acima para mudar o formato.</p></div>
                             </div>
                         )}
 
-                        {/* BOTÕES DE FORMATO - VISÍVEIS APENAS PARA ADMIN */}
-                        {mode === 'admin' && (
-                            <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 hover:bg-slate-100'}`}>HORIZONTAL</button></div></div>
-                        )}
+                        {mode === 'admin' && (<div><label className="text-xs font-bold text-[var(--text-muted)] uppercase block mb-2">Formato</label><div className="flex gap-2"><button onClick={()=>changeOrientation('portrait')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='portrait'?'bg-blue-600 text-white border-blue-600':'bg-[var(--bg-surface)] text-[var(--text-main)]'}`}>VERTICAL</button><button onClick={()=>changeOrientation('landscape')} className={`flex-1 py-2 text-xs font-bold rounded border ${design.orientation==='landscape'?'bg-blue-600 text-white border-blue-600':'bg-[var(--bg-surface)] text-[var(--text-main)]'}`}>HORIZONTAL</button></div></div>)}
                         
-                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Banners</label><div className="grid grid-cols-4 gap-2">{libraryData.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-slate-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-slate-100 border-2 border-dashed border-slate-300 rounded-md cursor-pointer flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-400 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
+                        <div><label className="text-xs font-bold text-[var(--text-muted)] uppercase block mb-2">Banners</label><div className="grid grid-cols-4 gap-2">{libraryData.banners.map(b=><div key={b.id} onClick={()=>selectLib('banner', b)} className={`h-10 rounded-md cursor-pointer border-2 transition-all ${design.bannerImage?.includes(b.file)?'border-blue-600 shadow-md scale-105':'border-transparent hover:border-gray-300'}`} style={{background:b.color, backgroundImage: `url(/assets/banners/${b.file})`, backgroundSize:'100% 100%'}}></div>)}<label className="h-10 bg-[var(--bg-page)] border-2 border-dashed border-[var(--border)] rounded-md cursor-pointer flex items-center justify-center text-[var(--text-muted)] hover:text-blue-500 transition-colors"><Upload size={16}/><input type="file" className="hidden" onChange={e=>handleFileUpload(e,'bannerImage')}/></label></div></div>
                         
-                        {/* EXIBE SLIDERS APENAS SE FOR ADMIN */}
                         {mode === 'admin' && (
                             factoryType === 'default' ? (
                                 <>
-                                    <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-slate-200"/></div></div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4"><h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
+                                    <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase block mb-1">Cor do Nome</label><input type="color" value={design.nameColor} onChange={e=>setDesign({...design, nameColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]"/></div><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase block mb-1">Cor do Preço</label><input type="color" value={design.priceColor} onChange={e=>setDesign({...design, priceColor:e.target.value})} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]"/></div></div>
+                                    <div className="bg-[var(--bg-page)] p-4 rounded-xl border border-[var(--border)] space-y-4"><h3 className="text-xs font-bold text-[var(--text-muted)] uppercase flex items-center gap-2"><Sliders size={14}/> Tamanhos (Escala)</h3><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-[var(--text-muted)]">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div><div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-[var(--text-muted)]">Tamanho Preço</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>
                                 </>
                             ) : (
-                                // CONTROLES ESPECÍFICOS PARA MEGA 10
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                                    <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Settings size={14}/> Escalas Individuais</h3>
-                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600"/></div>
-                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Oferta (Leve)</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600"/></div>
-                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Tamanho Limite</label><span className="text-[10px] font-bold text-blue-600">{design.limitScale || 100}%</span></div><input type="range" min="50" max="150" value={design.limitScale || 100} onChange={e=>setDesign({...design, limitScale: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600"/></div>
-                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-slate-500">Espaçamento Letras</label><span className="text-[10px] font-bold text-blue-600">{design.letterSpacing || 0}px</span></div><input type="range" min="-2" max="20" value={design.letterSpacing || 0} onChange={e=>setDesign({...design, letterSpacing: Number(e.target.value)})} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600"/></div>
+                                <div className="bg-[var(--bg-page)] p-4 rounded-xl border border-[var(--border)] space-y-4">
+                                    <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase flex items-center gap-2"><Settings size={14}/> Escalas Individuais</h3>
+                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-[var(--text-muted)]">Tamanho Nome</label><span className="text-[10px] font-bold text-blue-600">{design.nameScale}%</span></div><input type="range" min="50" max="150" value={design.nameScale} onChange={e=>setDesign({...design, nameScale: Number(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg accent-blue-600"/></div>
+                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-[var(--text-muted)]">Tamanho Oferta (Leve)</label><span className="text-[10px] font-bold text-blue-600">{design.priceScale}%</span></div><input type="range" min="50" max="150" value={design.priceScale} onChange={e=>setDesign({...design, priceScale: Number(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg accent-blue-600"/></div>
+                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-[var(--text-muted)]">Tamanho Limite</label><span className="text-[10px] font-bold text-blue-600">{design.limitScale || 100}%</span></div><input type="range" min="50" max="150" value={design.limitScale || 100} onChange={e=>setDesign({...design, limitScale: Number(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg accent-blue-600"/></div>
+                                    <div><div className="flex justify-between mb-1"><label className="text-[10px] font-bold text-[var(--text-muted)]">Espaçamento Letras</label><span className="text-[10px] font-bold text-blue-600">{design.letterSpacing || 0}px</span></div><input type="range" min="-2" max="20" value={design.letterSpacing || 0} onChange={e=>setDesign({...design, letterSpacing: Number(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg accent-blue-600"/></div>
                                 </div>
                             )
                         )}
@@ -690,16 +597,16 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
             </div>
         </div>
         
-        {/* CORREÇÃO DO PROBLEMA AQUI: REMOVIDO ID single-ghost DA PRÉ-VISUALIZAÇÃO */}
-        <div className="flex-1 flex items-center justify-center bg-slate-200 overflow-auto relative custom-scrollbar"><div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', transformOrigin: 'center center'}}>
-            {factoryType === 'mega10' ? 
-                <MegaPoster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition} />
-                :
-                <Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition}/>
-            }
-        </div></div>
+        <div className="flex-1 flex items-center justify-center bg-[var(--bg-page)] overflow-auto relative custom-scrollbar">
+            <div style={{transform: `scale(${previewScale})`, transition: 'transform 0.2s', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', transformOrigin: 'center center'}}>
+                {factoryType === 'mega10' ? 
+                    <MegaPoster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition} />
+                    :
+                    <Poster product={mode==='local' && bulkProducts.length>0 ? bulkProducts[0] : product} design={design} width={design.orientation==='portrait'?A4_WIDTH_PX:A4_HEIGHT_PX} height={design.orientation==='portrait'?A4_HEIGHT_PX:A4_WIDTH_PX} isEditable={editMode} onUpdatePosition={updatePosition}/>
+                }
+            </div>
+        </div>
 
-        {/* MANTÉM ID single-ghost APENAS AQUI (ÁREA OCULTA) */}
         <div style={{position:'absolute', top:0, left:'-9999px'}}>
             {bulkProducts.map((p, i) => (
                 factoryType === 'mega10' ? 
@@ -793,10 +700,9 @@ const AdminDashboard = ({ onLogout }) => {
       const docUnified = new jsPDF({ orientation: factoryData.design.orientation, unit: 'mm', format: factoryData.design.size });
 
       // CONFIGURAÇÃO INTELIGENTE DE QUALIDADE
-      // Se tiver mais de 50 cartazes, reduz a qualidade para não travar o navegador e o upload
       const isHeavy = factoryData.bulkProducts.length > 50;
-      const renderScale = isHeavy ? 1.0 : 1.5; // Reduz escala se for pesado
-      const jpegQuality = isHeavy ? 0.6 : 0.8; // Reduz qualidade JPG se for pesado
+      const renderScale = isHeavy ? 1.0 : 1.5; 
+      const jpegQuality = isHeavy ? 0.6 : 0.8; 
 
       try {
           const { bulkProducts, design } = factoryData;
@@ -804,44 +710,36 @@ const AdminDashboard = ({ onLogout }) => {
           for(let i=0; i<bulkProducts.length; i++) {
               const el = document.getElementById(`admin-ghost-${i}`);
               if(el) { 
-                  // Gera o canvas
                   const c = await html2canvas(el, {
                       scale: renderScale, 
                       useCORS: true, 
                       scrollY: 0,
-                      logging: false // Desativa logs para economizar memória
+                      logging: false 
                   }); 
                   
                   const imgData = c.toDataURL('image/jpeg', jpegQuality);
                   
-                  // Adiciona ao PDF Único
                   const pdf = new jsPDF({unit:'mm', format: design.size, orientation: design.orientation});
                   const w = pdf.internal.pageSize.getWidth(); const h = pdf.internal.pageSize.getHeight();
                   pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
                   
-                  // Adiciona ao ZIP Individual
                   zip.file(`${sanitizeFileName(bulkProducts[i].name)}.pdf`, pdf.output('blob'));
                   
-                  // Adiciona ao PDFzão unificado
                   if (i > 0) docUnified.addPage();
                   const uw = docUnified.internal.pageSize.getWidth(); const uh = docUnified.internal.pageSize.getHeight();
                   docUnified.addImage(imgData, 'JPEG', 0, 0, uw, uh);
               }
 
-              // ATUALIZA BARRA DE PROGRESSO
               setProgress(Math.round(((i+1)/bulkProducts.length)*100));
               
-              // PAUSA PARA O NAVEGADOR RESPIRAR (EVITA TRAVAMENTO EM LOTES GRANDES)
               if (i % 10 === 0) await new Promise(r => setTimeout(r, 300));
               else await new Promise(r => setTimeout(r, 10));
           }
 
-          // Adiciona o PDF unificado ao ZIP
           zip.file("#ofertaspack.pdf", docUnified.output('blob'));
           
           const zipContent = await zip.generateAsync({type:"blob"});
           
-          // Verificação de tamanho (apenas alerta no console)
           if (zipContent.size > 50000000) console.warn("Atenção: Arquivo maior que 50MB!");
 
           const safeTitle = sanitizeFileName(title) || `Campanha_${Date.now()}`;
@@ -873,45 +771,48 @@ const AdminDashboard = ({ onLogout }) => {
   const filteredLogs = logFilter === 'all' ? logs : logs.filter(l => l.store_email && l.store_email.includes(logFilter));
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans relative">
-        <div className="bg-slate-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
+    <div className="flex flex-col h-screen bg-[var(--bg-page)] font-sans relative transition-colors duration-300">
+        <div className="bg-[var(--bg-surface)] border-b border-[var(--border)] p-4 flex justify-between items-center shadow-sm sticky top-0 z-50">
             <div className="flex items-center gap-6">
-                <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3"><Layers className="text-blue-400"/> PAINEL ADMIN</h1>
-                <div className="flex bg-slate-800 rounded-lg p-1 gap-1">
-                    <button onClick={()=>setAdminTab('factory')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='factory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                <h1 className="font-extrabold text-xl tracking-tight flex items-center gap-3 text-[var(--text-main)]"><Layers className="text-[var(--accent)]"/> PAINEL ADMIN</h1>
+                <div className="flex bg-[var(--bg-page)] rounded-lg p-1 gap-1 border border-[var(--border)]">
+                    <button onClick={()=>setAdminTab('factory')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='factory' ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
                         <Settings size={14}/> GERADOR
                     </button>
-                    <button onClick={()=>setAdminTab('upload')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='upload' ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                    <button onClick={()=>setAdminTab('upload')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminTab==='upload' ? 'bg-[var(--bg-surface)] text-green-600 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
                         <FileUp size={14}/> UPLOAD DIRETO
                     </button>
                 </div>
             </div>
 
-            {adminTab === 'factory' && (
-                <div className="flex bg-slate-800 rounded-lg p-1">
-                    <button onClick={() => setFactoryMode('default')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'default' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}>PADRÃO</button>
-                    <button onClick={() => setFactoryMode('mega10')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'mega10' ? 'bg-yellow-500 text-slate-900' : 'text-slate-400 hover:text-white'}`}>MEGA 10</button>
-                </div>
-            )}
-
-            <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
+            <div className="flex items-center gap-4">
+              {adminTab === 'factory' && (
+                  <div className="flex bg-[var(--bg-page)] rounded-lg p-1 border border-[var(--border)]">
+                      <button onClick={() => setFactoryMode('default')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'default' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>PADRÃO</button>
+                      <button onClick={() => setFactoryMode('mega10')} className={`px-3 py-1 rounded text-xs font-bold transition-all ${factoryMode === 'mega10' ? 'bg-yellow-500 text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>MEGA 10</button>
+                  </div>
+              )}
+              
+              <ThemeToggle />
+              <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 text-white transition-colors px-4 py-2 rounded-lg font-bold flex items-center gap-2"><LogOut size={14}/> Sair</button>
+            </div>
         </div>
         
         {showCampaignsModal && ( 
             <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                    <div className="bg-slate-900 p-4 flex justify-between items-center">
-                        <h3 className="text-white font-bold text-lg uppercase flex items-center gap-2"><Layers size={20} className="text-purple-400"/> Gerenciar Todas as Campanhas</h3>
-                        <button onClick={()=>setShowCampaignsModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={24}/></button>
+                <div className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+                    <div className="bg-[var(--bg-page)] p-4 flex justify-between items-center border-b border-[var(--border)]">
+                        <h3 className="text-[var(--text-main)] font-bold text-lg uppercase flex items-center gap-2"><Layers size={20} className="text-purple-500"/> Gerenciar Todas as Campanhas</h3>
+                        <button onClick={()=>setShowCampaignsModal(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><X size={24}/></button>
                     </div>
-                    <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+                    <div className="p-6 overflow-y-auto bg-[var(--bg-page)] flex-1">
                         <div className="grid grid-cols-1 gap-3">
-                            {files.length === 0 ? <p className="text-center text-slate-400 mt-10">Nenhuma campanha encontrada.</p> : files.map(f => (
-                                <div key={f.id} className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                            {files.length === 0 ? <p className="text-center text-[var(--text-muted)] mt-10">Nenhuma campanha encontrada.</p> : files.map(f => (
+                                <div key={f.id} className="flex justify-between items-center p-4 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] shadow-sm hover:shadow-md transition-all">
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-slate-800 text-lg">{f.title}</h4>
+                                        <h4 className="font-bold text-[var(--text-main)] text-lg">{f.title}</h4>
                                         <div className="flex gap-4 mt-1">
-                                            <p className="text-sm text-slate-500 flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
+                                            <p className="text-sm text-[var(--text-muted)] flex items-center gap-2"><Clock size={14}/> Vence: {formatDateSafe(f.expiry_date)}</p>
                                             {f.release_date && <p className="text-sm text-blue-500 flex items-center gap-2"><CalendarClock size={14}/> Libera: {new Date(f.release_date).toLocaleString('pt-BR')}</p>}
                                         </div>
                                     </div>
@@ -929,23 +830,23 @@ const AdminDashboard = ({ onLogout }) => {
 
         {selectedDetail && ( 
             <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                    <div className="bg-slate-900 p-4 flex justify-between items-center">
-                        <h3 className="text-white font-bold text-sm uppercase flex items-center gap-2"><FileText size={16} className="text-blue-400"/> Status de Entrega</h3>
-                        <button onClick={()=>setSelectedDetail(null)} className="text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+                <div className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+                    <div className="bg-[var(--bg-page)] p-4 flex justify-between items-center border-b border-[var(--border)]">
+                        <h3 className="text-[var(--text-main)] font-bold text-sm uppercase flex items-center gap-2"><FileText size={16} className="text-blue-400"/> Status de Entrega</h3>
+                        <button onClick={()=>setSelectedDetail(null)} className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><X size={20}/></button>
                     </div>
                     <div className="p-6">
-                        <h4 className="font-bold text-slate-800 text-lg mb-6 leading-tight border-b pb-4">{selectedDetail.title}</h4>
+                        <h4 className="font-bold text-[var(--text-main)] text-lg mb-6 leading-tight border-b border-[var(--border)] pb-4">{selectedDetail.title}</h4>
                         <div className="space-y-3">
                             {STORES.map((store, index) => { 
                                 const isDownloaded = checkDownload(store, selectedDetail.id); 
                                 return (
-                                    <div key={index} className={`flex justify-between items-center p-3 rounded-lg border ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
+                                    <div key={index} className={`flex justify-between items-center p-3 rounded-lg border ${isDownloaded ? 'bg-green-50 border-green-200' : 'bg-[var(--bg-page)] border-[var(--border)]'}`}>
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isDownloaded ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</div>
-                                            <span className={`font-bold uppercase ${isDownloaded ? 'text-green-800' : 'text-slate-400'}`}>{store}</span>
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isDownloaded ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{index + 1}</div>
+                                            <span className={`font-bold uppercase ${isDownloaded ? 'text-green-800' : 'text-[var(--text-muted)]'}`}>{store}</span>
                                         </div>
-                                        {isDownloaded ? <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Recebido</span> : <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Clock size={14}/> Pendente</span>}
+                                        {isDownloaded ? <span className="text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Recebido</span> : <span className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-1"><Clock size={14}/> Pendente</span>}
                                     </div>
                                 ); 
                             })}
@@ -956,29 +857,30 @@ const AdminDashboard = ({ onLogout }) => {
         )}
 
         <div className="flex-1 flex overflow-hidden">
-            <div className="w-1/2 h-full flex flex-col border-r bg-white relative">
+            <div className="w-1/2 h-full flex flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] relative">
                 {/* ÁREA DE PUBLICAÇÃO */}
-                <div className="p-6 bg-white border-b flex flex-col gap-4 shadow-sm z-30">
+                <div className="p-6 bg-[var(--bg-surface)] border-b border-[var(--border)] flex flex-col gap-4 shadow-sm z-30">
                     <div className="flex gap-3 items-end">
                         <div className="flex-1">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título da Campanha</label>
-                            <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/>
+                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Título da Campanha</label>
+                            <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Ofertas de Verão"/>
                         </div>
                         <div className="w-36">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Validade</label>
-                            <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
+                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Validade</label>
+                            <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
                         </div>
                     </div>
                     
+                    {/* NOVO CAMPO DE AGENDAMENTO DE LANÇAMENTO */}
                     <div className="w-full">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block flex items-center gap-2">
+                        <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block flex items-center gap-2">
                             <Timer size={14} className="text-orange-500"/> Agendar Liberação (Opcional)
                         </label>
                         <input 
                             type="datetime-local" 
                             value={releaseDate} 
                             onChange={e=>setReleaseDate(e.target.value)} 
-                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-slate-600 font-medium"
+                            className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-medium"
                         />
                     </div>
 
@@ -998,43 +900,45 @@ const AdminDashboard = ({ onLogout }) => {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-hidden relative bg-slate-100">
+                <div className="flex-1 overflow-hidden relative bg-[var(--bg-page)]">
                     {adminTab === 'factory' ? (
                         <PosterFactory mode="admin" onAdminReady={setFactoryData} currentUser={{email:'admin'}} factoryType={factoryMode} />
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10 text-center">
+                        <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] p-10 text-center">
                             <Folder size={64} className="mb-4 text-green-200"/>
-                            <h3 className="text-xl font-bold text-slate-600">Modo de Upload Direto</h3>
+                            <h3 className="text-xl font-bold text-[var(--text-main)]">Modo de Upload Direto</h3>
                             <p className="max-w-xs mt-2 text-sm">Use este modo para enviar PDFs ou ZIPs prontos (feitos no Photoshop/Canva) diretamente para as lojas.</p>
                         </div>
                     )}
                 </div>
             </div>
             
-            <div className="w-1/2 h-full bg-slate-50 p-8 overflow-y-auto">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex justify-between items-center">
+            <div className="w-1/2 h-full bg-[var(--bg-page)] p-8 overflow-y-auto">
+                {/* PAINEL CAMPANHAS */}
+                <div className="bg-[var(--bg-surface)] p-6 rounded-2xl shadow-sm border border-[var(--border)] mb-6 flex justify-between items-center">
                     <div>
-                        <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas</h3>
-                        <p className="text-sm text-slate-400 mt-1">{files.length} ativas.</p>
+                        <h3 className="font-bold text-[var(--text-main)] flex items-center gap-2 text-lg"><Layers className="text-purple-500"/> Campanhas</h3>
+                        <p className="text-sm text-[var(--text-muted)] mt-1">{files.length} ativas.</p>
                     </div>
                     <button onClick={() => setShowCampaignsModal(true)} className="px-5 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg hover:bg-purple-700 flex items-center gap-2">
                         <Sliders size={16}/> GERENCIAR
                     </button>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                {/* PAINEL HISTÓRICO */}
+                <div className="bg-[var(--bg-surface)] p-6 rounded-2xl shadow-sm border border-[var(--border)]">
                     <div className="flex flex-col gap-4 mb-6">
                         <div className="flex justify-between items-center">
-                            <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Clock className="text-orange-500"/> Histórico</h3>
+                            <h3 className="font-bold text-[var(--text-main)] flex items-center gap-2 text-lg"><Clock className="text-orange-500"/> Histórico</h3>
                             <div className="flex gap-2">
                                 <button onClick={clearHistory} className="text-xs text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg font-bold flex items-center gap-1"><Trash2 size={12}/> LIMPAR</button>
                                 <button onClick={fetchData} className="text-xs text-blue-500 hover:bg-blue-50 px-3 py-2 rounded-lg font-bold flex items-center gap-1"><RefreshCcw size={12}/> ATUALIZAR</button>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                            <Filter size={16} className="text-slate-400"/>
-                            <span className="text-xs font-bold text-slate-500 uppercase">Filtrar:</span>
-                            <select value={logFilter} onChange={(e) => setLogFilter(e.target.value)} className="bg-transparent font-bold text-slate-700 outline-none flex-1">
+                        <div className="flex items-center gap-2 bg-[var(--bg-page)] p-3 rounded-lg border border-[var(--border)]">
+                            <Filter size={16} className="text-[var(--text-muted)]"/>
+                            <span className="text-xs font-bold text-[var(--text-muted)] uppercase">Filtrar:</span>
+                            <select value={logFilter} onChange={(e) => setLogFilter(e.target.value)} className="bg-transparent font-bold text-[var(--text-main)] outline-none flex-1">
                                 <option value="all">Todas as Lojas</option>
                                 {STORES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                             </select>
@@ -1042,15 +946,15 @@ const AdminDashboard = ({ onLogout }) => {
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+                            <thead className="bg-[var(--bg-page)] text-[var(--text-muted)] uppercase text-xs">
                                 <tr><th className="p-3">Horário</th><th className="p-3">Loja</th><th className="p-3">Produto</th></tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredLogs.length === 0 ? <tr><td colSpan="3" className="p-4 text-center text-slate-400">Vazio.</td></tr> : filteredLogs.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50">
-                                        <td className="p-3 font-mono text-xs text-slate-500">{formatDateSafe(log.created_at.split('T')[0])} {formatTimeSafe(log.created_at)}</td>
-                                        <td className="p-3 font-bold text-slate-700 uppercase">{log.store_email ? log.store_email.split('@')[0] : 'Admin'}</td>
-                                        <td className="p-3 text-slate-600">{log.product_name}</td>
+                            <tbody className="divide-y divide-[var(--border)]">
+                                {filteredLogs.length === 0 ? <tr><td colSpan="3" className="p-4 text-center text-[var(--text-muted)]">Vazio.</td></tr> : filteredLogs.map(log => (
+                                    <tr key={log.id} className="hover:bg-[var(--bg-page)]">
+                                        <td className="p-3 font-mono text-xs text-[var(--text-muted)]">{formatDateSafe(log.created_at.split('T')[0])} {formatTimeSafe(log.created_at)}</td>
+                                        <td className="p-3 font-bold text-[var(--text-main)] uppercase">{log.store_email ? log.store_email.split('@')[0] : 'Admin'}</td>
+                                        <td className="p-3 text-[var(--text-muted)]">{log.product_name}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1071,14 +975,15 @@ const AdminDashboard = ({ onLogout }) => {
   );
 };
 
+// ============================================================================
+// STORE LAYOUT ATUALIZADO (Menu no topo, Design novo)
+// ============================================================================
 const StoreLayout = ({ user, onLogout }) => {
-  // Views possíveis: 'files', 'learning', 'factory'
   const [view, setView] = useState('files');
   const [files, setFiles] = useState([]);
   const [myDownloads, setMyDownloads] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [factoryMode, setFactoryMode] = useState('default'); 
-  // NOVO: Relógio interno para atualizar os bloqueios
   const [now, setNow] = useState(new Date());
 
   useEffect(() => { loadFiles(); }, []);
@@ -1094,36 +999,35 @@ const StoreLayout = ({ user, onLogout }) => {
   
   const renderFiles = () => {
       const filtered = files.filter(f => f.title.toLowerCase().includes(searchTerm.toLowerCase()));
-      if (filtered.length === 0) return <div className="col-span-3 flex flex-col items-center justify-center h-64 text-slate-400"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte encontrado.</p></div>;
+      if (filtered.length === 0) return <div className="col-span-3 flex flex-col items-center justify-center h-64 text-[var(--text-muted)]"><FileText size={48} className="mb-4 opacity-20"/><p>Nenhum encarte encontrado.</p></div>;
       
       return filtered.map(f => { 
           const isDownloaded = myDownloads.includes(f.id); 
           
           // LÓGICA DE BLOQUEIO
-          // Se tiver data de liberação E a data for maior que agora -> ESTÁ BLOQUEADO
           const releaseDate = f.release_date ? new Date(f.release_date) : null;
           const isLocked = releaseDate && releaseDate > now;
 
           return (
-            <div key={f.id} className={`p-6 rounded-2xl shadow-sm transition-all duration-300 border group ${isLocked ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100 hover:shadow-xl hover:-translate-y-1'} ${isDownloaded ? 'bg-green-50 border-green-200' : ''}`}>
-                <div className="flex justify-between mb-6">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocked ? 'bg-orange-200 text-orange-700' : (isDownloaded ? 'bg-green-200 text-green-700' : 'bg-red-50 text-red-500')}`}>
-                        {isLocked ? <Lock size={20}/> : (isDownloaded ? <Check size={20}/> : <FileText size={20}/>)}
+            <div key={f.id} className={`file-card-modern ${isLocked ? 'border-orange-500/30 bg-orange-50/5' : ''}`}>
+                <div className="flex justify-between mb-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isLocked ? 'bg-orange-100 text-orange-600' : (isDownloaded ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600')}`}>
+                        {isLocked ? <Lock size={24}/> : (isDownloaded ? <Check size={24}/> : <FileText size={24}/>)}
                     </div>
-                    <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
+                    <span className="text-xs bg-[var(--bg-page)] border border-[var(--border)] px-3 py-1 rounded-full font-bold text-[var(--text-muted)] h-fit">Vence: {formatDateSafe(f.expiry_date)}</span>
                 </div>
-                <h3 className="font-bold text-xl text-slate-800 mb-2 line-clamp-2 h-14">{f.title}</h3>
+                <h3 className="font-bold text-xl text-[var(--text-main)] mb-4 line-clamp-2 h-14">{f.title}</h3>
                 
                 {/* ÁREA DE STATUS (BLOQUEADO OU LIBERADO) */}
                 {isLocked ? (
-                    <div className="bg-orange-100 rounded-xl p-4 text-center border-2 border-orange-200 border-dashed">
-                        <p className="text-xs font-bold text-orange-600 uppercase mb-1">Liberado em:</p>
-                        <div className="text-orange-800">
+                    <div className="bg-orange-500/10 rounded-xl p-4 text-center border-2 border-orange-500/20 border-dashed">
+                        <p className="text-xs font-bold text-orange-600 uppercase mb-1 flex items-center justify-center gap-2"><Timer size={14}/> Liberado em:</p>
+                        <div className="text-orange-700 font-mono text-lg font-black">
                             <CountdownTimer targetDate={releaseDate} />
                         </div>
                     </div>
                 ) : (
-                    <a href={f.file_url} target="_blank" rel="noreferrer" onClick={()=>registerDownload(f.id)} className={`block w-full py-4 font-bold rounded-xl text-center shadow-lg transition-all flex items-center justify-center gap-2 group-hover:scale-105 ${isDownloaded ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>
+                    <a href={f.file_url} target="_blank" rel="noreferrer" onClick={()=>registerDownload(f.id)} className={`btn-modern w-full ${isDownloaded ? 'bg-green-600 hover:bg-green-700' : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'}`}>
                         {isDownloaded ? <><CheckCircle size={20}/> JÁ BAIXADO</> : <><Download size={20}/> BAIXAR PACOTE</>}
                     </a>
                 )}
@@ -1133,91 +1037,92 @@ const StoreLayout = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
-        {/* SIDEBAR LATERAL */}
-        <div className="w-24 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center py-8 text-white z-50 shadow-2xl">
-            <div className="mb-10 p-3 bg-white/10 rounded-2xl backdrop-blur-sm"><ImageIcon className="text-white w-8 h-8"/></div>
+    <div className="flex h-screen bg-[var(--bg-page)] font-sans overflow-hidden transition-colors duration-300">
+        
+        {/* SIDEBAR - SEM BOTÃO DE SAIR AGORA */}
+        <div className="w-24 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col items-center py-8 z-50 shadow-xl transition-colors duration-300">
+            <div className="mb-10 p-3 bg-blue-500/10 rounded-2xl backdrop-blur-sm border border-blue-500/20"><ImageIcon className="text-blue-500 w-8 h-8"/></div>
             
             <div className="space-y-6 flex flex-col w-full px-4">
-                {/* Botão Matriz (Arquivos) */}
-                <button onClick={()=>setView('files')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='files'?'bg-blue-600 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
-                    <LayoutTemplate size={24}/>
-                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Matriz</span>
+                <button onClick={()=>setView('files')} className={`nav-btn p-4 flex flex-col items-center ${view==='files'?'active':''}`}>
+                    <LayoutTemplate size={24}/> <span className="text-[10px] font-bold mt-1">Matriz</span>
                 </button>
 
-                {/* Botão Aprenda (Novo) COM BOLINHA VERMELHA */}
-                <button onClick={()=>setView('learning')} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='learning'?'bg-purple-600 shadow-lg scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
-                    
-                    {/* --- BOLINHA VERMELHA PULSANTE AQUI --- */}
-                    <span className="absolute top-3 right-4 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-slate-800"></span>
-                    </span>
-                    {/* -------------------------------------- */}
-
-                    <GraduationCap size={24}/>
-                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Aprenda</span>
+                <button onClick={()=>setView('learning')} className={`nav-btn p-4 flex flex-col items-center ${view==='learning'?'active':''}`}>
+                    <span className="absolute top-2 right-4 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>
+                    <GraduationCap size={24}/> <span className="text-[10px] font-bold mt-1">Aprenda</span>
                 </button>
 
-                {/* Separador */}
-                <div className="h-px w-full bg-white/10 my-2"></div>
+                <div className="h-px w-full bg-[var(--border)] my-2"></div>
 
-                {/* Botão Fábrica Padrão */}
-                <button onClick={()=>{setView('factory'); setFactoryMode('default');}} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory' && factoryMode==='default' ?'bg-blue-500 shadow-lg shadow-blue-900/50 scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
-                    <Layers size={24}/>
-                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Padrão</span>
+                <button onClick={()=>{setView('factory'); setFactoryMode('default');}} className={`nav-btn p-4 flex flex-col items-center ${view==='factory' && factoryMode==='default' ?'active':''}`}>
+                    <Layers size={24}/> <span className="text-[10px] font-bold mt-1">Padrão</span>
                 </button>
 
-                {/* Botão Fábrica Mega 10 */}
-                <button onClick={()=>{setView('factory'); setFactoryMode('mega10');}} className={`p-4 rounded-2xl transition-all duration-300 group relative flex justify-center ${view==='factory' && factoryMode==='mega10' ?'bg-yellow-500 text-slate-900 shadow-lg scale-110':'hover:bg-white/10 text-slate-400 hover:text-white'}`}>
-                    <Star size={24}/>
-                    <span className="absolute left-16 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">Mega 10</span>
-                </button>
-            </div>
-
-            <div className="mt-auto px-4 w-full">
-                <button onClick={onLogout} className="p-4 w-full flex justify-center hover:bg-red-600/20 text-slate-400 hover:text-red-500 rounded-2xl transition-all">
-                    <LogOut size={24}/>
+                <button onClick={()=>{setView('factory'); setFactoryMode('mega10');}} className={`nav-btn p-4 flex flex-col items-center ${view==='factory' && factoryMode==='mega10' ?'active':''}`}>
+                    <Star size={24}/> <span className="text-[10px] font-bold mt-1">Mega 10</span>
                 </button>
             </div>
         </div>
 
-        {/* ÁREA DE CONTEÚDO PRINCIPAL */}
-        <div className="flex-1 overflow-hidden relative">
+        {/* ÁREA PRINCIPAL COM HEADER NO TOPO */}
+        <div className="flex-1 flex flex-col overflow-hidden relative">
             
-            {/* VIEW 1: ARQUIVOS/MATRIZ */}
-            {view === 'files' && (
-                <div className="p-10 h-full overflow-y-auto">
-                    <div className="flex justify-between items-end mb-8">
-                        <h2 className="text-3xl font-extrabold text-slate-800 flex gap-3 items-center">
-                            <LayoutTemplate className="text-blue-600"/> Encartes da Matriz
-                        </h2>
-                        <div className="relative w-96">
-                            <Search className="absolute left-4 top-3.5 text-slate-400" size={20}/>
-                            <input type="text" placeholder="Pesquisar campanha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600"/>
+            {/* --- NOVO HEADER (BOTÃO DE TEMA E SAIR) --- */}
+            <div className="h-20 bg-[var(--bg-surface)] border-b border-[var(--border)] flex items-center justify-between px-8 z-40 transition-colors duration-300">
+                <div>
+                    <h2 className="text-2xl font-extrabold text-[var(--text-main)] flex gap-3 items-center">
+                        {view === 'files' && <><LayoutTemplate className="text-[var(--accent)]"/> Encartes da Matriz</>}
+                        {view === 'learning' && <><GraduationCap className="text-purple-500"/> Caminho do Aprendizado</>}
+                        {view === 'factory' && <><Settings className="text-[var(--accent)]"/> Fábrica: {factoryMode === 'mega10' ? 'Mega 10' : 'Padrão'}</>}
+                    </h2>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    {/* Pesquisa (só aparece em arquivos) */}
+                    {view === 'files' && (
+                        <div className="relative w-72 mr-4 group">
+                            <Search className="absolute left-4 top-3.5 text-[var(--text-muted)] group-focus-within:text-[var(--accent)] transition-colors" size={20}/>
+                            <input type="text" placeholder="Pesquisar campanha..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} 
+                                   className="w-full pl-12 pr-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] focus:ring-2 focus:ring-blue-500 outline-none transition-all"/>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+                    )}
+                    
+                    <div className="h-8 w-px bg-[var(--border)]"></div>
+                    
+                    {/* BOTÃO DE TEMA AQUI */}
+                    <ThemeToggle />
+                    
+                    {/* BOTÃO SAIR AQUI */}
+                    <button onClick={onLogout} className="flex items-center gap-2 text-[var(--text-muted)] hover:text-red-500 transition-colors font-bold text-sm px-4 py-2 rounded-lg hover:bg-red-50">
+                        <LogOut size={18}/>
+                        <span className="hidden md:inline">Sair</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* CONTEÚDO ROLÁVEL */}
+            <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg-page)] transition-colors duration-300">
+                
+                {view === 'files' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-20 animate-in fade-in zoom-in duration-300">
                         {renderFiles()}
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* VIEW 2: APRENDIZADO (NOVO) */}
-            {view === 'learning' && (
-                <LearningPath />
-            )}
+                {view === 'learning' && <LearningPath />}
 
-            {/* VIEW 3: FÁBRICA (PADRÃO OU MEGA 10) */}
-            {view === 'factory' && (
-                <PosterFactory 
-                    key={factoryMode} // <--- ISSO RESOLVE A TELA BRANCA AO TROCAR DE MODO
-                    mode="local" 
-                    currentUser={user} 
-                    factoryType={factoryMode} 
-                />
-            )}
-
+                {view === 'factory' && (
+                    <div className="h-full">
+                        <PosterFactory 
+                            key={factoryMode} 
+                            mode="local" 
+                            currentUser={user} 
+                            factoryType={factoryMode} 
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     </div>
   );
@@ -1226,16 +1131,21 @@ const StoreLayout = ({ user, onLogout }) => {
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false);
   const handleLogin = async (e) => { e.preventDefault(); setLoading(true); const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if(error) { alert("Erro: "+error.message); setLoading(false); } else { setTimeout(() => onLogin(data.session), 500); } };
-  return (<div className={`h-screen w-screen bg-gradient-to-br from-blue-900 via-slate-900 to-red-900 flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden`}><div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px'}}></div><div className="w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/20 p-10 rounded-3xl shadow-2xl flex flex-col items-center relative z-10"><img src="/assets/logo-full.png" alt="Cartaz No Ponto" className="w-48 mb-8 drop-shadow-xl"/><h2 className="text-2xl font-bold text-white mb-2">Bem-vindo</h2><p className="text-blue-200 text-sm mb-8">Acesse sua central de criação</p><form onSubmit={handleLogin} className="w-full space-y-5"><div className="space-y-1"><label className="text-xs font-bold text-blue-100 uppercase ml-1">Email</label><input value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="seu@email.com"/></div><div className="space-y-1"><label className="text-xs font-bold text-blue-100 uppercase ml-1">Senha</label><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:bg-black/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all" placeholder="••••••••"/></div><button disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-red-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-1 transition-all disabled:opacity-50 mt-4">{loading ? <Loader className="animate-spin mx-auto"/> : 'ENTRAR NO SISTEMA'}</button></form></div><p className="mt-8 text-white/20 text-xs">© 2026 Cartaz No Ponto. Todos os direitos reservados.</p></div>);
+  return (<div className="h-screen w-screen bg-[var(--bg-page)] flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden"><div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border)] p-10 rounded-3xl shadow-2xl flex flex-col items-center relative z-10"><img src="/assets/logo-full.png" alt="Cartaz No Ponto" className="w-48 mb-8 drop-shadow-xl"/><h2 className="text-2xl font-bold text-[var(--text-main)] mb-2">Bem-vindo</h2><p className="text-[var(--text-muted)] text-sm mb-8">Acesse sua central de criação</p><form onSubmit={handleLogin} className="w-full space-y-5"><div className="space-y-1"><label className="text-xs font-bold text-[var(--accent)] uppercase ml-1">Email</label><input value={email} onChange={e=>setEmail(e.target.value)} className="input-modern" placeholder="seu@email.com"/></div><div className="space-y-1"><label className="text-xs font-bold text-[var(--accent)] uppercase ml-1">Senha</label><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="input-modern" placeholder="••••••••"/></div><button disabled={loading} className="btn-modern w-full py-4 shadow-lg mt-4">{loading ? <Loader className="animate-spin mx-auto"/> : 'ENTRAR NO SISTEMA'}</button></form></div><p className="mt-8 text-[var(--text-muted)] text-xs">© 2026 Cartaz No Ponto. Todos os direitos reservados.</p></div>);
 };
 
 const App = () => {
   const [session, setSession] = useState(null);
   useEffect(() => { supabase.auth.getSession().then(({ data: { session } }) => setSession(session)); const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session)); return () => subscription.unsubscribe(); }, []);
   const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); };
-  if (!session) return <LoginScreen onLogin={(s) => setSession(s)} />;
-  if (session?.user?.email?.includes('admin')) return <AdminDashboard onLogout={handleLogout} />;
-  return <StoreLayout user={session.user} onLogout={handleLogout} />;
+  return (
+    <ThemeProvider>
+      {!session ? <LoginScreen onLogin={(s) => setSession(s)} /> : 
+       session?.user?.email?.includes('admin') ? <AdminDashboard onLogout={handleLogout} /> : 
+       <StoreLayout user={session.user} onLogout={handleLogout} />
+      }
+    </ThemeProvider>
+  );
 };
 
 export default App;
