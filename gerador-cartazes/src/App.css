@@ -1,137 +1,319 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-/* ==========================================================================
-   VARIÁVEIS DE TEMA (ENGINE)
-   ========================================================================== */
-:root {
-  --transition-speed: 0.2s;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
-
-/* --- TEMA CLEAN (LIGHT) --- */
-:root[data-theme="light"], :root {
-  --bg-page: #f1f5f9;       /* Cinza bem claro, quase branco */
-  --bg-surface: #ffffff;    /* Branco puro para cartões */
-  --bg-hover: #f8fafc;
-  
-  --text-main: #0f172a;     /* Quase preto para leitura fácil */
-  --text-muted: #64748b;
-  
-  --border: #e2e8f0;        /* Bordas sutis */
-  
-  --accent: #2563eb;        /* Azul Royal */
-  --accent-hover: #1d4ed8;
-  --accent-light: #eff6ff;
-
-  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -1px rgb(0 0 0 / 0.01);
-  --shadow-hover: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-}
-
-/* --- TEMA DARK (HIGH CONTRAST) --- */
-:root[data-theme="dark"] {
-  --bg-page: #020617;       /* Preto profundo */
-  --bg-surface: #0f172a;    /* Azul muito escuro/Cinza */
-  --bg-hover: #1e293b;
-
-  --text-main: #ffffff;     /* Branco puro para contraste máximo */
-  --text-muted: #cbd5e1;    /* Cinza claro */
-  
-  --border: #334155;        /* Borda cinza visível para separar elementos */
-  
-  --accent: #38bdf8;        /* Azul Ciano Neon */
-  --accent-hover: #0ea5e9;
-  --accent-light: rgba(56, 189, 248, 0.1);
-
-  --shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
-  --shadow-hover: 0 0 15px rgba(56, 189, 248, 0.2); /* Brilho neon no hover */
-}
-
-/* ==========================================================================
-   ESTILOS GERAIS
-   ========================================================================== */
-* { box-sizing: border-box; }
 
 body {
-  background-color: var(--bg-page);
-  color: var(--text-main);
-  font-family: 'Inter', sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #09090b;
+  color: #ffffff;
+  overflow-x: hidden;
 }
 
-/* Scrollbar personalizada */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-page); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* ==========================================================================
-   CLASSES UTILITÁRIAS (Aplique estas classes no seu JSX)
-   ========================================================================== */
-
-/* Botões */
-button { cursor: pointer; transition: all var(--transition-speed); }
-
-.btn-primary {
-  background-color: var(--accent);
-  color: white;
-  border: none;
-  font-weight: 700;
-  transition: transform 0.2s, box-shadow 0.2s;
+code {
+  font-family: 'Fira Code', 'Courier New', monospace;
 }
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-hover);
+
+/* ============================================
+   SCROLLBAR CUSTOMIZADA - DARK THEME
+============================================ */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #18181b;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #06b6d4, #3b82f6);
+  border-radius: 10px;
+  border: 2px solid #18181b;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0891b2, #2563eb);
+}
+
+/* Scrollbar para Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #06b6d4 #18181b;
+}
+
+/* ============================================
+   ANIMAÇÕES PERSONALIZADAS
+============================================ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide {
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* ============================================
+   GLASSMORPHISM UTILITIES
+============================================ */
+.glass {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-cyan {
+  background: rgba(6, 182, 212, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.glass-purple {
+  background: rgba(147, 51, 234, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+}
+
+/* ============================================
+   TEXT GRADIENTS
+============================================ */
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-purple {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   GLOW EFFECTS
+============================================ */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3),
+              0 0 40px rgba(6, 182, 212, 0.2),
+              0 0 60px rgba(6, 182, 212, 0.1);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3),
+              0 0 40px rgba(168, 85, 247, 0.2),
+              0 0 60px rgba(168, 85, 247, 0.1);
+}
+
+/* ============================================
+   HOVER TRANSITIONS
+============================================ */
+.smooth-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smooth-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-/* Cards (Arquivos, Login, etc) */
-.card-base {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  transition: all 0.3s ease;
 }
 
-/* Efeito Hover nos Cards de Arquivo */
-.file-card-hover:hover {
-  transform: translateY(-5px) scale(1.01);
-  border-color: var(--accent);
-  box-shadow: var(--shadow-hover);
+/* ============================================
+   CARD PATTERNS
+============================================ */
+.card-pattern {
+  background-image: 
+    linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
-/* Sidebar e Paineis */
-.bg-surface { background-color: var(--bg-surface); }
-.border-color { border-color: var(--border); }
-.text-main { color: var(--text-main); }
-.text-muted { color: var(--text-muted); }
-
-/* Inputs */
-input, select, textarea {
-  background-color: var(--bg-page);
-  border: 1px solid var(--border);
-  color: var(--text-main);
-  transition: border-color 0.2s;
+/* ============================================
+   LOADING SHIMMER
+============================================ */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #18181b 0%,
+    #27272a 50%,
+    #18181b 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
 }
-input:focus, select:focus, textarea:focus {
+
+/* ============================================
+   SELECTION COLORS
+============================================ */
+::selection {
+  background: rgba(6, 182, 212, 0.3);
+  color: #ffffff;
+}
+
+::-moz-selection {
+  background: rgba(6, 182, 212, 0.3);
+  color: #ffffff;
+}
+
+/* ============================================
+   INPUT FOCUS GLOW
+============================================ */
+input:focus,
+textarea:focus,
+select:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
 }
 
-/* Toggle de Tema */
-.theme-btn {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  color: var(--text-main);
-  padding: 8px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ============================================
+   CUSTOM RANGE INPUT (SLIDERS)
+============================================ */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
 }
-.theme-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: rotate(15deg);
+
+input[type="range"]::-webkit-slider-track {
+  background: #27272a;
+  height: 8px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  cursor: pointer;
+  margin-top: -6px;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+  transition: all 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.6);
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-track {
+  background: #27272a;
+  height: 8px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+}
+
+/* ============================================
+   BUTTON PRESS EFFECT
+============================================ */
+button:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   UTILITY CLASSES
+============================================ */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================
+   ANIMATIONS DELAYS
+============================================ */
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* ============================================
+   RESPONSIVE GRID UTILITIES
+============================================ */
+@media (max-width: 768px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+}
+
+/* ============================================
+   PRINT STYLES
+============================================ */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
 }
