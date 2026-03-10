@@ -250,7 +250,7 @@ const MegaPoster = ({ product, design, width, height, id, isEditable, onUpdatePo
             <div style={s.movable('mega_limit')} onMouseDown={(e) => handleMouseDown(e, 'mega_limit')}>
                 {product.limit && (
                     <div style={{ fontSize: `${30 * scLimit}px`, fontFamily: fontMega, color: 'black', textTransform: 'uppercase', textAlign: 'center', width:'100%', letterSpacing: '1px' }}>
-                        LIMITE DE: <span style={{color: '#cc0000'}}>{product.limit}</span> COMBOS POR CLIENTE
+                        LIMITE DE: <span style={{color: '#cc0000'}}>{product.limit}</span> {product.combos || 'COMBOS'} POR CLIENTE
                     </div>
                 )}
             </div>
@@ -338,7 +338,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkProducts, setBulkProducts] = useState([]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: '', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', date: 'XX A XX/XX/XX', footer: '' });
+  const [product, setProduct] = useState({ name: 'OFERTA EXEMPLO', subtitle: '', price: '9,99', oldPrice: '21,99', unit: 'UNID', limit: 'X', leve: 'x', combos: 'COMBOS', date: 'XX A XX/XX/XX', footer: '' });
   const [design, setDesign] = useState(DEFAULT_DESIGN);
   const [editMode, setEditMode] = useState(false);
   const { presets, savePreset, loadPreset, deletePreset } = usePresets(setDesign);
@@ -372,7 +372,7 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
           const m = d.map(item => {
               const excelSubtitle = item['Subtitulo'] || item['Subtítulo'] || '';
               if (factoryType === 'mega10') {
-                  return { name: item['Produto'] || 'Produto', subtitle: excelSubtitle, leve: item['Leve'] || 'X', limit: item['Limite'] || '', date: item['Data'] || product.date };
+                  return { name: item['Produto'] || 'Produto', subtitle: excelSubtitle, leve: item['Leve'] || 'X', combos: item['Combos'] || 'COMBOS', limit: item['Limite'] || '', date: item['Data'] || product.date };
               } else {
                   return { name: item['Produto']||'Produto', subtitle: excelSubtitle, price: (String(item['Preço']||'00').trim()) + (String(item['Preço cent.']||',00').trim()), oldPrice: formatExcelPrice(item['Preço "DE"']), unit: item['Unidade']||'Un', limit: item['Limite']||'', date: item['Data']||product.date, footer: product.footer };
               }
@@ -525,7 +525,16 @@ const PosterFactory = ({ mode, onAdminReady, currentUser, factoryType = 'default
                         {factoryType === 'mega10' ? (
                             <>
                                 <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Quantidade (Leve)</label><input type="text" value={product.leve} onChange={e=>setProduct({...product, leve:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg font-bold text-xl text-center outline-none"/></div><div className="flex flex-col justify-center items-center"><span className="text-xs font-bold text-[var(--text-muted)]">PREÇO FIXO</span><span className="text-2xl font-black text-[var(--text-main)]">R$ 10,00</span></div></div>
-                                <div><label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Limite (Opcional)</label><input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg text-sm" placeholder="Ex: 5"/></div>
+                                <div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Limite (Opcional)</label>
+    <input type="text" value={product.limit} onChange={e=>setProduct({...product, limit:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg text-sm" placeholder="Ex: 5"/>
+  </div>
+  <div>
+    <label className="text-xs font-bold text-[var(--text-muted)] uppercase mb-1 block">Combos/Unid/Pack...</label>
+    <input type="text" value={product.combos} onChange={e=>setProduct({...product, combos:e.target.value})} className="w-full p-3 border border-[var(--border)] bg-[var(--bg-page)] text-[var(--text-main)] rounded-lg text-sm" placeholder="Ex: COMBOS"/>
+  </div>
+</div>
                             </>
                         ) : (
                             <>
